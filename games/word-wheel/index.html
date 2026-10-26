@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Wheel</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎡</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --gold: #facc15;
+      --gold-soft: #fde68a;
+      --wood: #7c2d12;
+      --stage: #1e0b3d;
+      --stage-hi: #5b21b6;
+      --board: #0f2a5c;
+      --tile: #2563eb;
+      --ink: #2b0f57;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { height: 100%; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 50% 25%, var(--stage-hi), var(--stage) 75%) fixed;
+      background-color: var(--stage);
+      color: #fff;
+      font-family: "Fredoka", "Comic Sans MS", system-ui, sans-serif;
+      overflow-x: hidden;
+      user-select: none;
+    }
+    button { font: inherit; cursor: pointer; border: none; }
+    .hidden { display: none !important; }
+
+    /* ── shared bits ── */
+    .big-btn {
+      font-size: clamp(26px, 3.4vw, 40px); font-weight: 700;
+      min-height: 76px; padding: 10px 36px; border-radius: 999px;
+      background: var(--gold); color: var(--ink);
+      box-shadow: 0 7px 0 #b45309, 0 0 30px #facc1588;
+      transition: transform .08s, box-shadow .08s;
+    }
+    .big-btn:active { transform: translateY(6px); box-shadow: 0 1px 0 #b45309; }
+    .big-btn:disabled { opacity: .45; cursor: default; box-shadow: 0 7px 0 #b45309; transform: none; }
+    .lights { color: var(--gold-soft); letter-spacing: 6px; font-size: 14px; animation: twinkle 1s steps(2) infinite; }
+
+    /* ── setup screen ── */
+    #setup { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; padding: 24px 16px 90px; text-align: center; }
+    #setup h1 { margin: 0; font-size: clamp(48px, 9vw, 96px); line-height: 1; color: var(--gold); text-shadow: 0 6px 0 var(--wood), 0 0 30px #facc15aa; }
+    #setup h1 .wheel-emoji { display: inline-block; animation: spin 6s linear infinite; }
+    .choice-label { font-size: 24px; color: var(--gold-soft); margin-bottom: 8px; }
+    .choices { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+    .choice {
+      min-width: 88px; min-height: 80px; padding: 8px 18px; border-radius: 22px;
+      background: #ffffff18; color: #fff; font-size: 26px; font-weight: 600;
+      border: 4px solid var(--gold); transition: transform .1s;
+    }
+    .choice .em { font-size: 34px; display: block; line-height: 1.1; }
+    .choice[aria-pressed="true"] { background: var(--gold); color: var(--ink); box-shadow: 0 0 22px #facc15; transform: scale(1.06); }
+
+    /* ── game screen ── */
+    #game { min-height: 100vh; display: grid; grid-template-rows: auto auto 1fr; gap: 10px; padding: 12px 16px 72px; }
+    .teams { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+    .team {
+      display: flex; align-items: center; gap: 8px;
+      padding: 6px 16px; border-radius: 18px; font-size: clamp(20px, 2.4vw, 30px); font-weight: 700;
+      background: #ffffff14; border: 4px solid var(--team); transition: transform .2s, box-shadow .2s;
+    }
+    .team .em { font-size: 1.3em; }
+    .team.on { background: var(--team); color: var(--ink); box-shadow: 0 0 26px var(--team); transform: scale(1.08); }
+    .team.bump { animation: bump .5s; }
+
+    .banner { text-align: center; font-size: clamp(26px, 3.6vw, 46px); font-weight: 700; min-height: 1.3em; color: var(--gold); text-shadow: 0 3px 0 var(--wood); }
+
+    .stage { display: grid; grid-template-columns: minmax(260px, 40%) 1fr; gap: 18px; align-items: center; }
+    .wheel-side { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .wheel-wrap { position: relative; width: min(38vw, 50vh, 440px); aspect-ratio: 1; }
+    .wheel-wrap .pointer {
+      position: absolute; top: -14px; left: 50%; transform: translateX(-50%); z-index: 2;
+      width: 0; height: 0; border-left: 22px solid transparent; border-right: 22px solid transparent;
+      border-top: 40px solid #fff; filter: drop-shadow(0 4px 0 var(--wood));
+    }
+    #wheel { width: 100%; height: 100%; display: block; cursor: pointer; filter: drop-shadow(0 0 30px #facc1566); }
+    #wheel.locked { cursor: default; }
+    .wheel-wrap .hub {
+      position: absolute; inset: 50% auto auto 50%; width: 22%; aspect-ratio: 1; transform: translate(-50%, -50%);
+      border-radius: 50%; background: var(--gold); border: 6px solid var(--wood);
+      display: grid; place-items: center; font-size: clamp(22px, 3vw, 40px); pointer-events: none;
+    }
+    .prize { font-size: clamp(22px, 2.6vw, 32px); min-height: 1.4em; color: var(--gold-soft); font-weight: 600; }
+
+    .word-side { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+    .clue { font-size: clamp(70px, min(13vw, 17vh), 170px); line-height: 1; filter: drop-shadow(0 8px 0 #0006); }
+    .clue.pop { animation: pop .6s; }
+    .board {
+      position: relative; display: flex; gap: 12px; padding: 16px; border-radius: 22px; background: var(--board);
+      box-shadow: 0 0 0 7px var(--gold), 0 0 0 12px var(--wood), 0 0 40px #facc1555;
+      margin-top: 18px;
+    }
+    .board .lights { position: absolute; left: 0; right: 0; top: -34px; text-align: center; }
+    .slot {
+      width: clamp(64px, min(8.5vw, 11vh), 112px); aspect-ratio: 3 / 4; border-radius: 12px;
+      display: grid; place-items: center; font-size: clamp(44px, 6vw, 80px); font-weight: 700;
+      background: var(--tile); color: transparent; perspective: 400px;
+      box-shadow: inset 0 -6px 0 #1e40af;
+    }
+    .slot.open { background: #fff; color: #1e3a8a; animation: flip .5s; box-shadow: inset 0 -6px 0 #cbd5e1; }
+
+    .keys { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; max-width: 900px; }
+    .key {
+      width: clamp(64px, min(7vw, 10vh), 96px); height: clamp(64px, min(7vw, 10vh), 96px); border-radius: 20px;
+      background: #fff; color: var(--stage-hi); font-size: clamp(40px, 4.5vw, 56px); font-weight: 700;
+      box-shadow: 0 7px 0 #a78bfa; transition: transform .08s, box-shadow .08s, opacity .2s;
+    }
+    .key:active:not(:disabled) { transform: translateY(6px); box-shadow: 0 1px 0 #a78bfa; }
+    .key:disabled { cursor: default; }
+    .keys.waiting .key:not(.used) { opacity: .55; }
+    .key.used { opacity: .25; transform: scale(.9); box-shadow: none; }
+    .key.wrong { animation: shake .45s; }
+
+    .tools { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .small-btn {
+      min-height: 64px; padding: 8px 20px; border-radius: 999px; font-size: 22px; font-weight: 600;
+      background: #ffffff1c; color: #fff; border: 3px solid var(--gold-soft);
+    }
+    .small-btn:active { transform: translateY(3px); }
+
+    /* ── end screen ── */
+    #end { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px 16px 90px; text-align: center; }
+    #end h1 { margin: 0; font-size: clamp(44px, 8vw, 88px); color: var(--gold); text-shadow: 0 6px 0 var(--wood); }
+    .podium { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-end; }
+    .podium .place { min-width: 150px; padding: 14px 18px; border-radius: 24px; background: var(--team); color: var(--ink); font-size: 30px; font-weight: 700; box-shadow: 0 8px 0 #0005; animation: pop .7s backwards; }
+    .podium .place .em { font-size: 64px; display: block; }
+    .podium .place.first { transform: scale(1.15); box-shadow: 0 0 40px var(--gold), 0 8px 0 #0005; }
+
+    /* ── confetti ── */
+    .confetti { position: fixed; top: -40px; font-size: 34px; pointer-events: none; z-index: 50; animation: fall linear forwards; }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes twinkle { 50% { opacity: .35; } }
+    @keyframes flip { 0% { transform: rotateY(90deg); } 100% { transform: rotateY(0); } }
+    @keyframes pop { 0% { transform: scale(.4); } 60% { transform: scale(1.15); } 100% { transform: scale(1); } }
+    @keyframes bump { 50% { transform: scale(1.25); } }
+    @keyframes shake { 20%, 60% { transform: translateX(-8px) rotate(-4deg); } 40%, 80% { transform: translateX(8px) rotate(4deg); } }
+    @keyframes fall { to { transform: translateY(110vh) rotate(540deg); } }
+
+    @media (max-width: 760px) {
+      .stage { grid-template-columns: 1fr; }
+      .wheel-wrap { width: min(78vw, 340px); }
+      .board { gap: 8px; padding: 12px; }
+    }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: .01s !important; animation-iteration-count: 1 !important; } }
+  </style>
+</head>
+<body>
+
+  <!-- 1. Setup -->
+  <section id="setup">
+    <div class="lights">● ● ● ● ● ● ● ● ● ● ● ●</div>
+    <h1><span class="wheel-emoji">🎡</span> Word Wheel</h1>
+    <div>
+      <div class="choice-label">Teams</div>
+      <div class="choices" id="teamChoices"></div>
+    </div>
+    <div>
+      <div class="choice-label">Words</div>
+      <div class="choices" id="topicChoices"></div>
+    </div>
+    <div>
+      <div class="choice-label">Letters</div>
+      <div class="choices" id="sizeChoices"></div>
+    </div>
+    <button class="big-btn" id="startBtn">▶ Play!</button>
+  </section>
+
+  <!-- 2. Game -->
+  <section id="game" class="hidden">
+    <div class="teams" id="teams"></div>
+    <div class="banner" id="banner"></div>
+    <div class="stage">
+      <div class="wheel-side">
+        <div class="wheel-wrap">
+          <div class="pointer"></div>
+          <svg id="wheel" viewBox="-110 -110 220 220" aria-label="Spin the wheel" role="button"></svg>
+          <div class="hub">⭐</div>
+        </div>
+        <button class="big-btn" id="spinBtn">🎡 Spin!</button>
+        <div class="prize" id="prize"></div>
+      </div>
+      <div class="word-side">
+        <div class="clue" id="clue">🐱</div>
+        <div class="board" id="board"><div class="lights">● ● ● ● ● ● ● ● ● ●</div></div>
+        <div class="keys waiting" id="keys"></div>
+        <div class="tools">
+          <button class="small-btn" id="solveBtn" title="The team said the whole word">🗣️ They said it!</button>
+          <button class="small-btn hidden" id="nextBtn">➡️ Next word</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. End -->
+  <section id="end" class="hidden">
+    <div class="lights">● ● ● ● ● ● ● ● ● ● ● ●</div>
+    <h1>🏆 Great job! 🏆</h1>
+    <div class="podium" id="podium"></div>
+    <div class="banner">Everyone is a star! ⭐</div>
+    <button class="big-btn" id="againBtn">🔄 Play again</button>
+  </section>
+
+  <script>
+    // ── Words: short, picture-friendly, all uppercase ──
+    const WORDS = {
+      Animals: [
+        ['CAT', '🐱'], ['DOG', '🐶'], ['PIG', '🐷'], ['COW', '🐮'], ['FOX', '🦊'], ['HEN', '🐔'],
+        ['BEE', '🐝'], ['ANT', '🐜'], ['BAT', '🦇'], ['OWL', '🦉'], ['RAT', '🐀'], ['EMU', '🐦'],
+        ['FISH', '🐟'], ['FROG', '🐸'], ['DUCK', '🦆'], ['BEAR', '🐻'], ['LION', '🦁'], ['GOAT', '🐐'],
+        ['CRAB', '🦀'], ['DEER', '🦌'], ['WOLF', '🐺'], ['SEAL', '🦭'], ['LAMB', '🐑'],
+      ],
+      Food: [
+        ['EGG', '🥚'], ['PIE', '🥧'], ['NUT', '🥜'], ['HAM', '🍖'], ['TEA', '🍵'],
+        ['YAM', '🍠'], ['CAKE', '🎂'], ['MILK', '🥛'], ['CORN', '🌽'], ['PEAR', '🍐'], ['RICE', '🍚'],
+        ['SOUP', '🍲'], ['MEAT', '🥩'], ['KIWI', '🥝'], ['TACO', '🌮'], ['FISH', '🐟'],
+      ],
+      Things: [
+        ['SUN', '☀️'], ['CAR', '🚗'], ['BUS', '🚌'], ['HAT', '🎩'], ['CUP', '☕'], ['BED', '🛏️'],
+        ['BOX', '📦'], ['KEY', '🔑'], ['PEN', '🖊️'], ['MAP', '🗺️'], ['VAN', '🚐'], ['TOY', '🧸'],
+        ['STAR', '⭐'], ['BALL', '⚽'], ['BOOK', '📖'], ['BOAT', '⛵'], ['DRUM', '🥁'], ['BELL', '🔔'],
+        ['MOON', '🌙'], ['TREE', '🌳'], ['KITE', '🪁'], ['SHIP', '🚢'], ['SOCK', '🧦'], ['DOOR', '🚪'],
+      ],
+    };
+    WORDS.Mix = [...WORDS.Animals, ...WORDS.Food, ...WORDS.Things];
+
+    const TEAMS = [
+      { name: 'Lions',   em: '🦁', color: '#facc15' },
+      { name: 'Pandas',  em: '🐼', color: '#f9a8d4' },
+      { name: 'Frogs',   em: '🐸', color: '#86efac' },
+      { name: 'Monkeys', em: '🐵', color: '#93c5fd' },
+    ];
+
+    // Wheel sectors, clockwise from the top. stars: points for a right letter; gift: a free letter.
+    const SECTORS = [
+      { label: '1', stars: 1, color: '#ef4444' },
+      { label: '2', stars: 2, color: '#f59e0b' },
+      { label: '🎁', gift: true, stars: 2, color: '#22c55e' },
+      { label: '1', stars: 1, color: '#3b82f6' },
+      { label: '3', stars: 3, color: '#a855f7' },
+      { label: '1', stars: 1, color: '#ef4444' },
+      { label: '2', stars: 2, color: '#f59e0b' },
+      { label: '🎁', gift: true, stars: 2, color: '#22c55e' },
+      { label: '1', stars: 1, color: '#3b82f6' },
+      { label: '3', stars: 3, color: '#a855f7' },
+    ];
+    const SECTOR_DEG = 360 / SECTORS.length;
+    const WORDS_PER_GAME = 5;
+    const SOLVE_BONUS = 3;
+    const ALPHABET = 'ABCDEFGHIJKLMNOPRSTUVWY'; // no Q, X, Z as distractors — too tricky for K3
+
+    const $ = id => document.getElementById(id);
+    const shuffle = a => { a = [...a]; for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+    // ── Sound: tiny synth + browser speech, no files needed ──
+    let audio;
+    function tone(freq, dur = 0.15, type = 'sine', vol = 0.2, when = 0) {
+      try {
+        audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+        const t = audio.currentTime + when;
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = type; o.frequency.value = freq;
+        g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+        o.connect(g).connect(audio.destination); o.start(t); o.stop(t + dur);
+      } catch (e) {}
+    }
+    const sfx = {
+      tick: () => tone(1200, 0.03, 'square', 0.05),
+      ding: () => { tone(880, 0.25, 'triangle', 0.25); tone(1320, 0.35, 'triangle', 0.2, 0.12); },
+      oops: () => { tone(330, 0.2, 'sine', 0.2); tone(262, 0.3, 'sine', 0.2, 0.18); },
+      gift: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.2, 'triangle', 0.2, i * 0.09)),
+      win: () => [523, 659, 784, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, 'triangle', 0.22, i * 0.14)),
+    };
+    function say(text) {
+      try {
+        speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.lang = 'en-US'; u.rate = 0.85; u.pitch = 1.1;
+        speechSynthesis.speak(u);
+      } catch (e) {}
+    }
+
+    // ── Setup screen ──
+    const settings = { teams: 2, topic: 'Mix', size: 3 };
+    try { Object.assign(settings, JSON.parse(localStorage.getItem('word-wheel-settings') || '{}')); } catch (e) {}
+
+    function choiceGroup(el, key, options) {
+      el.innerHTML = '';
+      options.forEach(([value, em, text]) => {
+        const b = document.createElement('button');
+        b.className = 'choice';
+        b.innerHTML = `<span class="em">${em}</span>${text}`;
+        b.setAttribute('aria-pressed', String(settings[key] === value));
+        b.onclick = () => { settings[key] = value; tone(660, 0.08, 'triangle'); choiceGroup(el, key, options); };
+        el.appendChild(b);
+      });
+    }
+    choiceGroup($('teamChoices'), 'teams', [2, 3, 4].map(n => [n, TEAMS.slice(0, n).map(t => t.em).join(''), n]));
+    choiceGroup($('topicChoices'), 'topic', [['Animals', '🐶', 'Animals'], ['Food', '🍎', 'Food'], ['Things', '🚗', 'Things'], ['Mix', '🎲', 'Mix']]);
+    choiceGroup($('sizeChoices'), 'size', [[3, '🐣', '3'], [4, '🐥', '4']]);
+
+    // ── Game state ──
+    let game;
+    let rotation = 0;
+    let spinning = false;
+
+    $('startBtn').onclick = startGame;
+    $('againBtn').onclick = () => show('setup');
+
+    function show(id) {
+      ['setup', 'game', 'end'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+      window.scrollTo(0, 0);
+    }
+
+    function startGame() {
+      try { localStorage.setItem('word-wheel-settings', JSON.stringify(settings)); } catch (e) {}
+      const pool = WORDS[settings.topic].filter(([w]) => w.length === settings.size);
+      game = {
+        teams: TEAMS.slice(0, settings.teams).map(t => ({ ...t, stars: 0 })),
+        turn: 0,
+        words: shuffle(pool).slice(0, WORDS_PER_GAME),
+        wordIndex: -1,
+        phase: 'spin', // spin → pick → (next team) spin … → done
+        sector: null,
+      };
+      tone(523, 0.1, 'triangle'); tone(784, 0.2, 'triangle', 0.2, 0.1);
+      show('game');
+      drawWheel();
+      nextWord();
+    }
+
+    function nextWord() {
+      game.wordIndex++;
+      if (game.wordIndex >= game.words.length) return endGame();
+      const [word, em] = game.words[game.wordIndex];
+      game.word = word;
+      game.revealed = new Set();
+      game.used = new Set();
+      const unique = [...new Set(word)];
+      const extra = shuffle([...ALPHABET].filter(l => !unique.includes(l))).slice(0, Math.max(3, 7 - unique.length));
+      game.keys = shuffle([...unique, ...extra]);
+
+      $('clue').textContent = em;
+      $('clue').classList.remove('pop'); void $('clue').offsetWidth; $('clue').classList.add('pop');
+      const board = $('board');
+      board.querySelectorAll('.slot').forEach(s => s.remove());
+      [...word].forEach(l => {
+        const s = document.createElement('div');
+        s.className = 'slot'; s.dataset.letter = l; s.textContent = l;
+        board.appendChild(s);
+      });
+      renderKeys();
+      $('nextBtn').classList.add('hidden');
+      $('solveBtn').classList.remove('hidden');
+      setPhase('spin');
+    }
+
+    function renderKeys() {
+      const box = $('keys');
+      box.innerHTML = '';
+      game.keys.forEach(l => {
+        const b = document.createElement('button');
+        b.className = 'key' + (game.used.has(l) ? ' used' : '');
+        b.textContent = l;
+        b.disabled = game.used.has(l);
+        b.onclick = () => pickLetter(l, b);
+        box.appendChild(b);
+      });
+    }
+
+    function renderTeams() {
+      const box = $('teams');
+      box.innerHTML = '';
+      game.teams.forEach((t, i) => {
+        const d = document.createElement('div');
+        d.className = 'team' + (i === game.turn && game.phase !== 'done' ? ' on' : '');
+        d.style.setProperty('--team', t.color);
+        d.id = 'team' + i;
+        d.innerHTML = `<span class="em">${t.em}</span>${t.name} ⭐${t.stars}`;
+        box.appendChild(d);
+      });
+    }
+
+    function setPhase(phase) {
+      game.phase = phase;
+      const t = game.teams[game.turn];
+      $('keys').classList.toggle('waiting', phase !== 'pick');
+      $('spinBtn').disabled = phase !== 'spin';
+      $('wheel').classList.toggle('locked', phase !== 'spin');
+      if (phase === 'spin') { $('banner').textContent = `${t.em} ${t.name}, spin the wheel!`; $('prize').textContent = ''; }
+      if (phase === 'pick') $('banner').textContent = `${t.em} ${t.name}, pick a letter!`;
+      renderTeams();
+      // On small screens the wheel and the letters don't fit together — bring the right one into view.
+      const target = phase === 'pick' ? $('keys') : $('spinBtn');
+      target.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function nextTeam() {
+      game.turn = (game.turn + 1) % game.teams.length;
+      setPhase('spin');
+    }
+
+    function addStars(n) {
+      game.teams[game.turn].stars += n;
+      renderTeams();
+      const el = $('team' + game.turn);
+      el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump');
+    }
+
+    // ── Wheel ──
+    function drawWheel() {
+      const svg = $('wheel');
+      const r = 100;
+      const pt = deg => { const a = (deg - 90) * Math.PI / 180; return [r * Math.cos(a), r * Math.sin(a)]; };
+      let html = `<g id="wheelRot">`;
+      SECTORS.forEach((s, i) => {
+        const [x1, y1] = pt(i * SECTOR_DEG), [x2, y2] = pt((i + 1) * SECTOR_DEG);
+        html += `<path d="M0 0 L${x1} ${y1} A${r} ${r} 0 0 1 ${x2} ${y2} Z" fill="${s.color}" stroke="#fde68a" stroke-width="2"/>`;
+        const mid = i * SECTOR_DEG + SECTOR_DEG / 2;
+        const text = s.gift ? '🎁' : '⭐'.repeat(s.stars);
+        const size = s.stars === 3 && !s.gift ? 13 : 17;
+        html += `<text transform="rotate(${mid}) translate(0 -66) rotate(90)" font-size="${size}" text-anchor="middle" dominant-baseline="central"
+          style="writing-mode:horizontal-tb">${text}</text>`;
+      });
+      html += `</g><circle r="104" fill="none" stroke="#facc15" stroke-width="8"/>`;
+      for (let i = 0; i < 20; i++) { const [x, y] = [Math.cos(i * Math.PI / 10) * 104, Math.sin(i * Math.PI / 10) * 104]; html += `<circle cx="${x}" cy="${y}" r="3" fill="#fff" class="bulb" style="animation: twinkle 1s steps(2) ${i % 2 ? '.5s' : '0s'} infinite"/>`; }
+      svg.innerHTML = html;
+      setWheel(rotation);
+    }
+    function setWheel(deg) { $('wheelRot').setAttribute('transform', `rotate(${deg})`); }
+
+    $('spinBtn').onclick = spin;
+    $('wheel').onclick = spin;
+
+    function spin() {
+      if (!game || game.phase !== 'spin' || spinning) return;
+      spinning = true;
+      $('spinBtn').disabled = true;
+      $('banner').textContent = 'Round and round… 🎡';
+      const start = rotation;
+      const target = start + 360 * (3 + Math.random() * 2) + Math.random() * 360;
+      const dur = 3800;
+      const t0 = performance.now();
+      let lastSector = sectorAt(start);
+      const ease = t => 1 - Math.pow(1 - t, 3);
+      function frame(now) {
+        const t = Math.min(1, (now - t0) / dur);
+        rotation = start + (target - start) * ease(t);
+        setWheel(rotation);
+        const s = sectorAt(rotation);
+        if (s !== lastSector) { sfx.tick(); lastSector = s; }
+        if (t < 1) requestAnimationFrame(frame);
+        else { spinning = false; landed(SECTORS[s]); }
+      }
+      requestAnimationFrame(frame);
+    }
+    // Which sector is under the pointer at the top for a given wheel rotation.
+    function sectorAt(deg) {
+      const a = ((360 - (deg % 360)) % 360 + 360) % 360;
+      return Math.floor(a / SECTOR_DEG) % SECTORS.length;
+    }
+
+    function landed(sector) {
+      game.sector = sector;
+      if (sector.gift) {
+        game.phase = 'busy';
+        sfx.gift();
+        $('prize').textContent = '🎁 A free letter!';
+        const hidden = [...new Set(game.word)].filter(l => !game.revealed.has(l));
+        const letter = hidden[Math.floor(Math.random() * hidden.length)];
+        $('banner').textContent = `🎁 Surprise! The letter ${letter}!`;
+        setTimeout(() => {
+          revealLetter(letter);
+          addStars(sector.stars);
+          say(letter);
+          if (isSolved()) return wordDone(false);
+          setTimeout(nextTeam, 1400);
+        }, 900);
+        return;
+      }
+      $('prize').textContent = `${'⭐'.repeat(sector.stars)} for a right letter!`;
+      tone(988, 0.15, 'triangle');
+      setPhase('pick');
+    }
+
+    // ── Letters ──
+    function revealLetter(letter) {
+      game.revealed.add(letter);
+      game.used.add(letter);
+      document.querySelectorAll(`.slot[data-letter="${letter}"]`).forEach((s, i) => setTimeout(() => s.classList.add('open'), i * 250));
+      renderKeys();
+    }
+    const isSolved = () => [...game.word].every(l => game.revealed.has(l));
+
+    function pickLetter(letter, btn) {
+      if (game.phase !== 'pick' || game.used.has(letter)) return;
+      say(letter);
+      if (game.word.includes(letter)) {
+        game.phase = 'busy';
+        sfx.ding();
+        revealLetter(letter);
+        addStars(game.sector.stars);
+        $('banner').textContent = `Yes! ${letter} is in the word! 🎉`;
+        if (isSolved()) return setTimeout(() => wordDone(false), 700);
+        setTimeout(nextTeam, 1500);
+      } else {
+        game.phase = 'busy';
+        sfx.oops();
+        btn.classList.add('wrong');
+        game.used.add(letter);
+        $('banner').textContent = `Oops! No ${letter} this time 🙈`;
+        setTimeout(() => { renderKeys(); nextTeam(); }, 1500);
+      }
+    }
+
+    // Teacher taps this when the team says the whole word out loud.
+    $('solveBtn').onclick = () => {
+      if (!game || spinning || !['spin', 'pick'].includes(game.phase)) return;
+      [...new Set(game.word)].forEach(l => { if (!game.revealed.has(l)) revealLetter(l); });
+      wordDone(true);
+    };
+
+    function wordDone(saidIt) {
+      game.phase = 'busy';
+      const t = game.teams[game.turn];
+      if (saidIt) addStars(SOLVE_BONUS);
+      sfx.win();
+      confetti();
+      $('banner').textContent = saidIt ? `${t.em} ${t.name} said it! +${SOLVE_BONUS} ⭐` : `${game.word}! Well done! 🎉`;
+      $('prize').textContent = '';
+      $('spinBtn').disabled = true;
+      $('keys').classList.add('waiting');
+      $('solveBtn').classList.add('hidden');
+      $('nextBtn').classList.remove('hidden');
+      $('clue').classList.remove('pop'); void $('clue').offsetWidth; $('clue').classList.add('pop');
+      setTimeout(() => say(game.word.toLowerCase()), 900);
+    }
+
+    $('nextBtn').onclick = () => {
+      game.turn = (game.turn + 1) % game.teams.length;
+      nextWord();
+    };
+
+    function endGame() {
+      game.phase = 'done';
+      const ranked = [...game.teams].sort((a, b) => b.stars - a.stars);
+      const best = ranked[0].stars;
+      $('podium').innerHTML = ranked.map((t, i) =>
+        `<div class="place ${t.stars === best ? 'first' : ''}" style="--team:${t.color}; animation-delay:${i * 0.15}s">
+          <span class="em">${t.em}</span>${t.stars === best ? '🥇 ' : ''}${t.name}<br>⭐ ${t.stars}</div>`).join('');
+      show('end');
+      sfx.win();
+      confetti();
+      say('Great job, everyone!');
+    }
+
+    function confetti() {
+      const bits = ['⭐', '🎉', '✨', '🌟', '🎈', '💛'];
+      for (let i = 0; i < 28; i++) {
+        const c = document.createElement('div');
+        c.className = 'confetti';
+        c.textContent = bits[i % bits.length];
+        c.style.left = Math.random() * 100 + 'vw';
+        c.style.animationDuration = 2 + Math.random() * 2 + 's';
+        c.style.animationDelay = Math.random() * 0.6 + 's';
+        document.body.appendChild(c);
+        setTimeout(() => c.remove(), 5000);
+      }
+    }
+  </script>
+</body>
+</html>
