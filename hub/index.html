@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>K3 Games</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg: #fff8ec;
+      --ink: #2b2140;
+      --muted: #7a6f8c;
+      --card: #ffffff;
+      --ring: #2b2140;
+      --shadow: 0 6px 0 rgba(43, 33, 64, 0.9);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #1d1730;
+        --ink: #fff6e6;
+        --muted: #b9add0;
+        --card: #2a2244;
+        --ring: #fff6e6;
+        --shadow: 0 6px 0 rgba(0, 0, 0, 0.6);
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #1d1730; --ink: #fff6e6; --muted: #b9add0; --card: #2a2244; --ring: #fff6e6; --shadow: 0 6px 0 rgba(0,0,0,.6);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      background-image: radial-gradient(rgba(122, 111, 140, 0.18) 1.5px, transparent 1.5px);
+      background-size: 22px 22px;
+      color: var(--ink);
+      font-family: "Fredoka", "Comic Sans MS", system-ui, sans-serif;
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; }
+    header { text-align: center; margin-bottom: 22px; }
+    header .logo { font-size: 56px; line-height: 1; animation: wiggle 3s ease-in-out infinite; display: inline-block; }
+    h1 { font-size: clamp(34px, 6vw, 56px); margin: 6px 0 4px; letter-spacing: 0.5px; }
+    h1 span:nth-child(1) { color: #ef4444; } h1 span:nth-child(2) { color: #f59e0b; }
+    h1 span:nth-child(3) { color: #22c55e; } h1 span:nth-child(4) { color: #3b82f6; }
+    h1 span:nth-child(5) { color: #a855f7; }
+    header p { margin: 0; color: var(--muted); font-size: 18px; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin: 22px 0 28px; }
+    .filters button {
+      font: inherit; font-size: 18px; font-weight: 600;
+      padding: 10px 18px; border-radius: 999px; cursor: pointer;
+      border: 3px solid var(--ring); background: var(--card); color: var(--ink);
+      box-shadow: 0 4px 0 var(--ring); transition: transform .08s, box-shadow .08s;
+    }
+    .filters button[aria-pressed="true"] { background: #facc15; color: #2b2140; }
+    .filters button:active { transform: translateY(4px); box-shadow: 0 0 0 var(--ring); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 22px; }
+    .card {
+      display: flex; flex-direction: column; text-decoration: none; color: #2b2140;
+      border: 4px solid var(--ring); border-radius: 28px; overflow: hidden;
+      background: var(--card); box-shadow: var(--shadow);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    .card:hover { transform: translateY(-4px) rotate(-0.6deg); }
+    .card:active { transform: translateY(4px); box-shadow: 0 2px 0 rgba(43,33,64,.9); }
+    .card .art {
+      height: 150px; display: grid; place-items: center; font-size: 84px;
+      border-bottom: 4px solid var(--ring);
+    }
+    .card .art span { filter: drop-shadow(0 6px 0 rgba(0,0,0,.15)); transition: transform .2s; }
+    .card:hover .art span { transform: scale(1.12) rotate(6deg); }
+    .card .body { padding: 14px 16px 18px; background: var(--card); color: var(--ink); flex: 1; }
+    .card h2 { margin: 0 0 4px; font-size: 24px; line-height: 1.15; }
+    .card p { margin: 0 0 12px; color: var(--muted); font-size: 16px; }
+    .tag {
+      display: inline-block; font-size: 14px; font-weight: 600; padding: 4px 12px;
+      border-radius: 999px; border: 2px solid var(--ring); background: var(--bg);
+    }
+    .empty { text-align: center; color: var(--muted); font-size: 20px; padding: 40px 0; }
+    footer { text-align: center; color: var(--muted); margin-top: 40px; font-size: 15px; }
+
+    @keyframes wiggle { 0%,100% { transform: rotate(-8deg); } 50% { transform: rotate(8deg); } }
+    @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+    @media (max-width: 520px) { .grid { grid-template-columns: 1fr; } .card .art { height: 120px; font-size: 70px; } }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="logo">🎮</div>
+      <h1><span>K</span><span>3</span> <span>Ga</span><span>m</span><span>es</span></h1>
+      <p>Pick a game and let's play!</p>
+    </header>
+
+    <nav class="filters" id="filters" aria-label="Subjects"></nav>
+    <main class="grid" id="grid"></main>
+    <footer>Made with love for K3 🌟</footer>
+  </div>
+
+  <script>
+    // ── Add new games here. "slug" = folder name inside games/ ──
+    const GAMES = [
+      { slug: 'pixel-math-dungeon', title: 'Pixel Math Dungeon', emoji: '🏰', subject: 'Math',    about: 'Solve sums to beat the monsters!', color: '#fca5a5' },
+      { slug: 'pixel-math-quiz',    title: 'Pixel Math Quiz',    emoji: '🧮', subject: 'Math',    about: 'Quick pixel math questions.',      color: '#fdba74' },
+      { slug: 'math-adventure',     title: 'Math Adventure',     emoji: '⭐', subject: 'Math',    about: 'Fun stories with numbers.',         color: '#fde047' },
+      { slug: 'missing-number',     title: 'Missing Number',     emoji: '🔢', subject: 'Math',    about: 'Find the number that is hiding!',   color: '#93c5fd' },
+      { slug: 'super-typer',        title: 'Super Typer',        emoji: '⌨️', subject: 'Letters', about: 'Type the words, super fast!',       color: '#86efac' },
+      { slug: 'magic-forest',       title: 'Magic Forest',       emoji: '🌳', subject: 'Play',    about: 'A board game adventure for teams.', color: '#6ee7b7' },
+      { slug: 'pixel-beats',        title: 'PixelBeats',         emoji: '🎵', subject: 'Music',   about: 'Make your own 8-bit music.',        color: '#c4b5fd' },
+      { slug: 'giggle-pix',         title: 'GigglePix',          emoji: '📸', subject: 'Art',     about: 'Turn photos into silly pictures.',  color: '#f9a8d4' },
+    ];
+
+    const grid = document.getElementById('grid');
+    const filters = document.getElementById('filters');
+    const subjects = ['All', ...new Set(GAMES.map(g => g.subject))];
+    let current = 'All';
+    try { current = localStorage.getItem('k3-filter') || 'All'; } catch (e) {}
+    if (!subjects.includes(current)) current = 'All';
+
+    function render() {
+      filters.innerHTML = '';
+      subjects.forEach(s => {
+        const b = document.createElement('button');
+        b.textContent = s;
+        b.setAttribute('aria-pressed', String(s === current));
+        b.onclick = () => { current = s; try { localStorage.setItem('k3-filter', s); } catch (e) {} render(); };
+        filters.appendChild(b);
+      });
+      const list = GAMES.filter(g => current === 'All' || g.subject === current);
+      grid.innerHTML = list.length ? '' : '<p class="empty">No games here yet 🙈</p>';
+      list.forEach(g => {
+        const a = document.createElement('a');
+        a.className = 'card';
+        a.href = `./${g.slug}/`;
+        a.innerHTML = `
+          <div class="art" style="background:${g.color}"><span>${g.emoji}</span></div>
+          <div class="body">
+            <h2>${g.title}</h2>
+            <p>${g.about}</p>
+            <span class="tag">${g.subject}</span>
+          </div>`;
+        grid.appendChild(a);
+      });
+    }
+    render();
+  </script>
+</body>
+</html>

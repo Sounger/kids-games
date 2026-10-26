@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pixel Math Dungeon</title>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+    
+    <style>
+      body {
+        background-color: #1a1a1a;
+        color: white;
+        font-family: 'VT323', monospace;
+        overflow: hidden; /* Prevent scrolling during game */
+        image-rendering: pixelated;
+      }
+      .pixel-shadow {
+        box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.5);
+      }
+      .pixel-btn {
+        transition: all 0.1s;
+        border-bottom-width: 4px;
+        border-right-width: 4px;
+        border-color: rgba(0,0,0,0.3);
+      }
+      .pixel-btn:active {
+        transform: translate(2px, 2px);
+        border-bottom-width: 0px;
+        border-right-width: 0px;
+      }
+      /* Custom Scrollbar for stats */
+      ::-webkit-scrollbar {
+        width: 12px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #2d1b2e; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #d3a068; 
+        border: 2px solid #2d1b2e;
+      }
+    </style>
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="./index.tsx"></script>
+  </body>
+</html>
