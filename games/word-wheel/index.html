@@ -126,6 +126,22 @@
     .small-btn:active { transform: translateY(3px); }
 
     /* ── end screen ── */
+    .edit-words { margin-top: 12px; }
+
+    /* ── my words editor ── */
+    #editor { min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 16px 90px; text-align: center; }
+    #editor h2 { margin: 0; font-size: clamp(36px, 6vw, 60px); color: var(--gold); text-shadow: 0 5px 0 var(--wood); }
+    .hint { margin: 0; font-size: 19px; color: var(--gold-soft); line-height: 1.5; }
+    kbd { background: #ffffff22; border: 2px solid var(--gold-soft); border-radius: 6px; padding: 0 6px; font-family: inherit; }
+    #wordsInput {
+      width: min(100%, 520px); font: inherit; font-size: 26px; line-height: 1.4; padding: 12px 16px;
+      border-radius: 18px; border: 4px solid var(--gold); background: #fff; color: var(--ink); resize: vertical;
+      user-select: text;
+    }
+    .preview { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 720px; }
+    .chip { padding: 4px 14px; border-radius: 999px; background: #fff; color: var(--ink); font-size: 22px; font-weight: 600; }
+    .chip.bad { background: #ffffff22; color: #fecaca; text-decoration: line-through; }
+
     #end { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; padding: 24px 16px 90px; text-align: center; }
     #end h1 { margin: 0; font-size: clamp(44px, 8vw, 88px); color: var(--gold); text-shadow: 0 6px 0 var(--wood); }
     .podium { display: flex; flex-wrap: wrap; gap: 16px; justify-content: center; align-items: flex-end; }
@@ -165,12 +181,27 @@
     <div>
       <div class="choice-label">Words</div>
       <div class="choices" id="topicChoices"></div>
+      <button class="small-btn edit-words hidden" id="editWordsBtn">✏️ Edit my words</button>
     </div>
-    <div>
+    <div id="sizeGroup">
       <div class="choice-label">Letters</div>
       <div class="choices" id="sizeChoices"></div>
     </div>
     <button class="big-btn" id="startBtn">▶ Play!</button>
+  </section>
+
+  <!-- 1b. Teacher's own words -->
+  <section id="editor" class="hidden">
+    <h2>✏️ My words</h2>
+    <p class="hint">One word per line, add a picture if you like: <b>cat 🐱</b><br>
+      2–7 English letters. Tip: press <kbd>Win</kbd> + <kbd>.</kbd> to pick an emoji.</p>
+    <textarea id="wordsInput" rows="8" spellcheck="false" placeholder="cat 🐱&#10;dog 🐶&#10;sun ☀️"></textarea>
+    <div class="preview" id="wordsPreview"></div>
+    <div class="tools">
+      <button class="big-btn" id="wordsDoneBtn">✅ Done</button>
+      <button class="small-btn" id="copyLinkBtn" title="A link with these words, to open on another computer or tablet">🔗 Copy link</button>
+    </div>
+    <div class="hint" id="copyNote"></div>
   </section>
 
   <!-- 2. Game -->
@@ -298,13 +329,94 @@
         b.className = 'choice';
         b.innerHTML = `<span class="em">${em}</span>${text}`;
         b.setAttribute('aria-pressed', String(settings[key] === value));
-        b.onclick = () => { settings[key] = value; tone(660, 0.08, 'triangle'); choiceGroup(el, key, options); };
+        b.onclick = () => { settings[key] = value; tone(660, 0.08, 'triangle'); choiceGroup(el, key, options); updateSetup(true); };
         el.appendChild(b);
       });
     }
     choiceGroup($('teamChoices'), 'teams', [2, 3, 4].map(n => [n, TEAMS.slice(0, n).map(t => t.em).join(''), n]));
-    choiceGroup($('topicChoices'), 'topic', [['Animals', '🐶', 'Animals'], ['Food', '🍎', 'Food'], ['Things', '🚗', 'Things'], ['Mix', '🎲', 'Mix']]);
+    const TOPICS = [['Animals', '🐶', 'Animals'], ['Food', '🍎', 'Food'], ['Things', '🚗', 'Things'], ['Mix', '🎲', 'Mix'], ['My', '✏️', 'My words']];
+    choiceGroup($('topicChoices'), 'topic', TOPICS);
     choiceGroup($('sizeChoices'), 'size', [[3, '🐣', '3'], [4, '🐥', '4']]);
+
+    // ── My words: the teacher's own list, kept on this device (and shareable as a link) ──
+    const MY_WORDS_KEY = 'word-wheel-my-words';
+    let myWordsText = '';
+    try { myWordsText = localStorage.getItem(MY_WORDS_KEY) || ''; } catch (e) {}
+
+    // "cat 🐱" → ['CAT', '🐱']. Lines that are not one 2–7 letter English word are skipped.
+    function parseWords(text) {
+      const words = [], skipped = [], seen = new Set();
+      text.split('\n').map(l => l.trim()).filter(Boolean).forEach(line => {
+        const found = line.match(/[A-Za-z]+/g) || [];
+        const word = (found[0] || '').toUpperCase();
+        if (found.length !== 1 || word.length < 2 || word.length > 7) return skipped.push(line);
+        if (seen.has(word)) return;
+        seen.add(word);
+        const pic = line.replace(found[0], '').replace(/[\s,;:\-–]+/g, ' ').trim().slice(0, 16) || '❓';
+        words.push([word, pic]);
+      });
+      return { words, skipped };
+    }
+    const myWords = () => parseWords(myWordsText).words;
+
+    function saveMyWords(text) {
+      myWordsText = text;
+      try { localStorage.setItem(MY_WORDS_KEY, text); } catch (e) {}
+    }
+
+    function updateSetup(clicked) {
+      const mine = settings.topic === 'My';
+      $('editWordsBtn').classList.toggle('hidden', !mine);
+      $('sizeGroup').classList.toggle('hidden', mine);
+      if (clicked && mine && !myWords().length) openEditor();
+    }
+
+    function openEditor() {
+      $('wordsInput').value = myWordsText;
+      $('copyNote').textContent = '';
+      renderPreview();
+      show('editor');
+      $('wordsInput').focus();
+    }
+
+    function renderPreview() {
+      const { words, skipped } = parseWords($('wordsInput').value);
+      const box = $('wordsPreview');
+      box.innerHTML = '';
+      words.forEach(([w, pic]) => { const c = document.createElement('span'); c.className = 'chip'; c.textContent = `${pic} ${w}`; box.appendChild(c); });
+      skipped.forEach(line => { const c = document.createElement('span'); c.className = 'chip bad'; c.title = 'One English word, 2–7 letters'; c.textContent = line; box.appendChild(c); });
+      if (skipped.length) { const n = document.createElement('div'); n.className = 'hint'; n.style.width = '100%'; n.textContent = 'Crossed out = skipped: use one English word with 2–7 letters.'; box.appendChild(n); }
+      $('wordsDoneBtn').textContent = words.length ? `✅ Done (${words.length})` : '✅ Done';
+    }
+
+    $('wordsInput').oninput = () => { saveMyWords($('wordsInput').value); renderPreview(); };
+    $('editWordsBtn').onclick = openEditor;
+    $('wordsDoneBtn').onclick = () => {
+      if (!myWords().length) settings.topic = 'Mix';
+      choiceGroup($('topicChoices'), 'topic', TOPICS);
+      show('setup');
+      updateSetup();
+    };
+    $('copyLinkBtn').onclick = async () => {
+      const list = myWords().map(([w, pic]) => `${w.toLowerCase()} ${pic === '❓' ? '' : pic}`.trim()).join('\n');
+      const url = `${location.origin}${location.pathname}?words=${encodeURIComponent(list)}`;
+      try { await navigator.clipboard.writeText(url); $('copyNote').textContent = '🔗 Link copied! Open it on another computer to get these words.'; }
+      catch (e) { window.prompt('Copy this link:', url); }
+    };
+
+    // Opening a shared link (?words=...) loads its words into "My words".
+    (function loadWordsFromLink() {
+      const shared = new URLSearchParams(location.search).get('words');
+      if (shared === null) return;
+      history.replaceState(null, '', location.pathname);
+      if (!parseWords(shared).words.length) return;
+      if (myWordsText.trim() && myWordsText.trim() !== shared.trim() &&
+          !window.confirm('Replace your words with the words from this link?')) return;
+      saveMyWords(shared);
+      settings.topic = 'My';
+      choiceGroup($('topicChoices'), 'topic', TOPICS);
+    })();
+    updateSetup();
 
     // ── Game state ──
     let game;
@@ -315,13 +427,15 @@
     $('againBtn').onclick = () => show('setup');
 
     function show(id) {
-      ['setup', 'game', 'end'].forEach(s => $(s).classList.toggle('hidden', s !== id));
+      ['setup', 'editor', 'game', 'end'].forEach(s => $(s).classList.toggle('hidden', s !== id));
       window.scrollTo(0, 0);
     }
 
     function startGame() {
       try { localStorage.setItem('word-wheel-settings', JSON.stringify(settings)); } catch (e) {}
-      const pool = WORDS[settings.topic].filter(([w]) => w.length === settings.size);
+      const pool = settings.topic === 'My' ? myWords()
+        : (WORDS[settings.topic] || WORDS.Mix).filter(([w]) => w.length === settings.size);
+      if (!pool.length) return openEditor();
       game = {
         teams: TEAMS.slice(0, settings.teams).map(t => ({ ...t, stars: 0 })),
         turn: 0,
