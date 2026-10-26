@@ -127,6 +127,15 @@
 
     /* ── end screen ── */
     .edit-words { margin-top: 12px; }
+    .team-names { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 14px; max-width: 900px; }
+    .team-names label {
+      display: flex; align-items: center; gap: 6px; padding: 4px 6px 4px 12px; border-radius: 18px;
+      background: var(--team); font-size: 30px;
+    }
+    .team-names input {
+      width: 150px; min-height: 52px; font: inherit; font-size: 22px; font-weight: 600; padding: 4px 10px;
+      border: none; border-radius: 12px; background: #fff; color: var(--ink); user-select: text;
+    }
 
     /* ── my words editor ── */
     #editor { min-height: 100vh; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 24px 16px 90px; text-align: center; }
@@ -177,6 +186,7 @@
     <div>
       <div class="choice-label">Teams</div>
       <div class="choices" id="teamChoices"></div>
+      <div class="team-names" id="teamNames"></div>
     </div>
     <div>
       <div class="choice-label">Words</div>
@@ -267,7 +277,9 @@
       { name: 'Pandas',  em: '🐼', color: '#f9a8d4' },
       { name: 'Frogs',   em: '🐸', color: '#86efac' },
       { name: 'Monkeys', em: '🐵', color: '#93c5fd' },
+      { name: 'Tigers',  em: '🐯', color: '#fdba74' },
     ];
+    const esc = s => s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
     // Wheel sectors, clockwise from the top. stars: points for a right letter; gift: a free letter.
     const SECTORS = [
@@ -333,7 +345,29 @@
         el.appendChild(b);
       });
     }
-    choiceGroup($('teamChoices'), 'teams', [2, 3, 4].map(n => [n, TEAMS.slice(0, n).map(t => t.em).join(''), n]));
+    choiceGroup($('teamChoices'), 'teams', [2, 3, 4, 5].map(n => [n, TEAMS.slice(0, n).map(t => t.em).join(''), n]));
+
+    // Team names the teacher can type in; empty = the animal name.
+    if (!Array.isArray(settings.names)) settings.names = [];
+    const saveSettings = () => { try { localStorage.setItem('word-wheel-settings', JSON.stringify(settings)); } catch (e) {} };
+    const teamName = i => (settings.names[i] || '').trim() || TEAMS[i].name;
+    function renderTeamNames() {
+      const box = $('teamNames');
+      box.innerHTML = '';
+      TEAMS.slice(0, settings.teams).forEach((t, i) => {
+        const label = document.createElement('label');
+        label.style.setProperty('--team', t.color);
+        label.textContent = t.em;
+        const input = document.createElement('input');
+        input.maxLength = 14;
+        input.placeholder = t.name;
+        input.value = settings.names[i] || '';
+        input.setAttribute('aria-label', `Name for team ${i + 1}`);
+        input.oninput = () => { settings.names[i] = input.value; saveSettings(); };
+        label.appendChild(input);
+        box.appendChild(label);
+      });
+    }
     const TOPICS = [['Animals', '🐶', 'Animals'], ['Food', '🍎', 'Food'], ['Things', '🚗', 'Things'], ['Mix', '🎲', 'Mix'], ['My', '✏️', 'My words']];
     choiceGroup($('topicChoices'), 'topic', TOPICS);
     choiceGroup($('sizeChoices'), 'size', [[3, '🐣', '3'], [4, '🐥', '4']]);
@@ -365,6 +399,7 @@
     }
 
     function updateSetup(clicked) {
+      renderTeamNames();
       const mine = settings.topic === 'My';
       $('editWordsBtn').classList.toggle('hidden', !mine);
       $('sizeGroup').classList.toggle('hidden', mine);
@@ -432,12 +467,12 @@
     }
 
     function startGame() {
-      try { localStorage.setItem('word-wheel-settings', JSON.stringify(settings)); } catch (e) {}
+      saveSettings();
       const pool = settings.topic === 'My' ? myWords()
         : (WORDS[settings.topic] || WORDS.Mix).filter(([w]) => w.length === settings.size);
       if (!pool.length) return openEditor();
       game = {
-        teams: TEAMS.slice(0, settings.teams).map(t => ({ ...t, stars: 0 })),
+        teams: TEAMS.slice(0, settings.teams).map((t, i) => ({ ...t, name: teamName(i), stars: 0 })),
         turn: 0,
         words: shuffle(pool).slice(0, WORDS_PER_GAME),
         wordIndex: -1,
@@ -497,7 +532,7 @@
         d.className = 'team' + (i === game.turn && game.phase !== 'done' ? ' on' : '');
         d.style.setProperty('--team', t.color);
         d.id = 'team' + i;
-        d.innerHTML = `<span class="em">${t.em}</span>${t.name} ⭐${t.stars}`;
+        d.innerHTML = `<span class="em">${t.em}</span>${esc(t.name)} ⭐${t.stars}`;
         box.appendChild(d);
       });
     }
@@ -668,7 +703,7 @@
       const best = ranked[0].stars;
       $('podium').innerHTML = ranked.map((t, i) =>
         `<div class="place ${t.stars === best ? 'first' : ''}" style="--team:${t.color}; animation-delay:${i * 0.15}s">
-          <span class="em">${t.em}</span>${t.stars === best ? '🥇 ' : ''}${t.name}<br>⭐ ${t.stars}</div>`).join('');
+          <span class="em">${t.em}</span>${t.stars === best ? '🥇 ' : ''}${esc(t.name)}<br>⭐ ${t.stars}</div>`).join('');
       show('end');
       sfx.win();
       confetti();
