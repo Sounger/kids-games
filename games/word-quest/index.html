@@ -133,6 +133,65 @@
     .bubble::before { width: 10px; height: 10px; bottom: -48px; left: calc(50% - 10px); }
     .bubble .no { color: #9aa0a6; text-decoration: line-through; text-decoration-thickness: 5px; margin-right: 0.3em; }
 
+    .pic-img { height: 1em; width: auto; vertical-align: middle; image-rendering: auto; border-radius: 0.08em; }
+
+    /* ⚙️ hold-to-open button */
+    .gear { position: relative; overflow: hidden; }
+    .gear::after { content: ""; position: absolute; inset: 0; background: #ffd23f; transform: scaleX(0); transform-origin: left; z-index: -1; }
+    .gear.holding::after { transform: scaleX(1); transition: transform 3s linear; }
+    .gear { isolation: isolate; }
+    .gear-tip { position: absolute; top: 64px; right: 0; white-space: nowrap; background: #2b2140; color: #fff; padding: 6px 12px; border-radius: 10px; font-size: 16px; }
+
+    /* "Choose a word" screen */
+    .pick-grid { display: flex; flex-wrap: wrap; gap: 18px; justify-content: center; max-width: 1400px; max-height: 70vh; overflow: auto; padding: 16px; }
+    .pick-card {
+      display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; font: inherit;
+      min-width: 170px; padding: 14px 18px; border-radius: 22px; border: 5px solid #2b2140; background: #fff8ec; color: #2b2140; box-shadow: 0 6px 0 #2b2140;
+    }
+    .pick-card .pic { font-size: 64px; line-height: 1; }
+    .pick-card .w { font-family: "Press Start 2P", monospace; font-size: 22px; }
+    .pick-card.selected { background: #ffd23f; transform: scale(1.08); box-shadow: 0 6px 0 #2b2140, 0 0 0 8px #fff, 0 0 0 13px #ff5a5f; }
+
+    /* Teacher menu */
+    .teacher { background: rgba(20, 16, 40, 0.75); z-index: 50; justify-content: center; }
+    .t-panel {
+      width: min(980px, 100%); max-height: 94vh; display: flex; flex-direction: column; text-align: left;
+      background: #fff8ec; color: #2b2140; border: 5px solid #2b2140; border-radius: 24px; overflow: hidden; font-size: 18px; user-select: text;
+    }
+    .t-panel header, .t-panel footer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 12px 16px; background: #f1e3c8; }
+    .t-panel header h2 { margin: 0 12px 0 0; font-size: 24px; }
+    .t-panel header .sp { flex: 1; }
+    .t-panel button, .t-panel select, .t-panel input:not([type=checkbox]):not([type=range]) {
+      font: inherit; font-size: 17px; min-height: 42px; padding: 6px 12px; border-radius: 12px; border: 2px solid #2b2140; background: #fff; color: #2b2140;
+    }
+    .t-panel button { cursor: pointer; font-weight: 600; }
+    .t-panel button:disabled { opacity: 0.35; cursor: default; }
+    .t-panel button.on, .t-primary { background: #ffd23f !important; }
+    .t-body { overflow: auto; padding: 8px 18px 18px; flex: 1; }
+    .t-label { font-weight: 700; font-size: 20px; margin: 18px 0 8px; }
+    .t-note { color: #7a6f8c; font-size: 15px; font-weight: 400; }
+    .t-chips, .t-line { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 6px 0; }
+    .t-line label { display: flex; gap: 8px; align-items: center; }
+    .t-chip small { color: #7a6f8c; }
+    .t-list { display: flex; flex-direction: column; gap: 6px; margin: 12px 0; max-height: 34vh; overflow: auto; }
+    .t-row { display: flex; gap: 8px; align-items: center; padding: 4px 8px; border-radius: 12px; background: #fff; border: 2px solid #eadfcc; }
+    .t-row.editing { border-color: #ffd23f; background: #fff7cf; }
+    .t-row .t-word { flex: 1; font-family: "Press Start 2P", monospace; font-size: 16px; }
+    .t-row button { min-height: 36px !important; padding: 2px 10px !important; }
+    .t-pic { width: 46px; text-align: center; font-size: 32px; }
+    .t-pic.big { width: auto; min-width: 60px; font-size: 48px; }
+    .t-form { border-top: 2px dashed #d8c9ad; padding-top: 4px; }
+    .t-error { color: #c2410c; font-weight: 600; }
+    .t-set { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 6px 0; border-bottom: 1px solid #eadfcc; }
+    .t-set > span { flex: 1; }
+    .t-set input[type=range] { width: 220px; }
+    .t-toggle input { display: none; }
+    .t-toggle span { display: inline-block; width: 56px; height: 30px; border-radius: 99px; background: #cbd5e1; position: relative; cursor: pointer; transition: background .2s; }
+    .t-toggle span::after { content: ""; position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fff; transition: left .2s; }
+    .t-toggle input:checked + span { background: #22c55e; }
+    .t-toggle input:checked + span::after { left: 29px; }
+    kbd { border: 2px solid #2b2140; border-radius: 6px; padding: 0 5px; background: #fff; }
+
     .confetti { position: fixed; top: -50px; font-size: clamp(30px, 4vw, 54px); pointer-events: none; z-index: 40; animation: fall linear forwards; }
 
     @keyframes blink { 50% { opacity: 0.35; } }
@@ -149,6 +208,7 @@
 
   <div class="hud">
     <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>
+    <div style="position:relative"><button class="icon-btn gear" id="gearBtn" title="Teacher menu: hold 3 seconds">⚙️</button><span class="gear-tip hidden" id="gearTip">Teacher: hold for 3 seconds</span></div>
     <button class="icon-btn" id="sfxBtn" title="Sound effects on/off">🔔</button>
     <button class="icon-btn" id="fsBtn" title="Full screen (F)">⛶</button>
   </div>
@@ -179,6 +239,33 @@
       <div class="chest-pic">🧰</div>
       <div class="math-text" id="mathText"></div>
       <div class="answers" id="answers"></div>
+    </div>
+  </section>
+
+  <section class="overlay hidden" id="pick">
+    <div class="logo" style="font-size:clamp(26px,4vw,60px)">CHOOSE A WORD</div>
+    <div class="pick-grid" id="pickGrid"></div>
+  </section>
+
+  <section class="overlay hidden teacher" id="teacher">
+    <div class="t-panel">
+      <header>
+        <h2>⚙️ Teacher menu</h2>
+        <button id="tTabWords">📚 Words</button>
+        <button id="tTabSettings">🎛️ Settings</button>
+        <span class="sp"></span>
+        <button id="tClose" title="Close">✖</button>
+      </header>
+      <div class="t-body" id="tBody"></div>
+      <footer>
+        <button id="tExport" title="Save words and settings to a file">⬇️ Export to file</button>
+        <button id="tImport" title="Load words and settings from a file">⬆️ Import from file</button>
+        <input type="file" id="tImportFile" accept=".json,application/json" hidden>
+        <button id="tReset">↺ Reset</button>
+        <span class="sp" style="flex:1"></span>
+        <button id="tNewWord" title="Leave this word and start a new one">▶ New word now</button>
+        <button class="t-primary" id="tDone">✔ Done</button>
+      </footer>
     </div>
   </section>
 

@@ -4,8 +4,12 @@ import { LETTER_COLORS } from './sprites.js';
 
 const $ = id => document.getElementById(id);
 
+export const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// A word's picture: an emoji (text) or an uploaded image (data URL).
+export const picHTML = pic => (/^data:image\//.test(pic || '') ? `<img class="pic-img" src="${esc(pic)}" alt="">` : esc(pic || ''));
+
 export function setupWordUI(word) {
-  $('barPic').textContent = word.pic;
+  $('barPic').innerHTML = picHTML(word.pic);
   $('barWord').textContent = word.word;
   const slots = $('slots');
   slots.innerHTML = '';
@@ -14,14 +18,14 @@ export function setupWordUI(word) {
     s.className = 'slot';
     slots.appendChild(s);
   });
-  $('showPic').textContent = word.pic;
+  $('showPic').innerHTML = picHTML(word.pic);
   $('showWord').innerHTML = '';
   for (const ch of word.word) {
     const s = document.createElement('span');
     s.textContent = ch;
     $('showWord').appendChild(s);
   }
-  $('winPic').textContent = word.pic;
+  $('winPic').innerHTML = picHTML(word.pic);
   $('winWord').textContent = word.word;
 }
 
@@ -120,6 +124,31 @@ export const mathBox = {
     const b = [...$('answers').children].find(b => +b.dataset.value === value);
     b?.classList.add('right');
     $('mathText').textContent = $('mathText').textContent.replace('?', value);
+  },
+};
+
+// ── "Choose a word" screen (when the teacher picks words by hand) ──
+export const picker = {
+  open(words, onPick) {
+    const grid = $('pickGrid');
+    grid.innerHTML = '';
+    words.forEach((w, i) => {
+      const b = document.createElement('button');
+      b.className = 'pick-card';
+      b.dataset.i = i;
+      b.innerHTML = `<span class="pic">${picHTML(w.pic) || '❔'}</span><span class="w">${esc(w.word)}</span>`;
+      b.onclick = () => onPick(i);
+      grid.appendChild(b);
+    });
+  },
+  select(i) { [...$('pickGrid').children].forEach((b, k) => b.classList.toggle('selected', k === i)); $('pickGrid').children[i]?.scrollIntoView({ block: 'nearest' }); },
+  // How many cards fit in one row (for moving up and down with the D-pad).
+  columns() {
+    const cards = [...$('pickGrid').children];
+    if (cards.length < 2) return 1;
+    const top = cards[0].offsetTop;
+    const n = cards.findIndex(c => c.offsetTop !== top);
+    return n < 0 ? cards.length : n;
   },
 };
 

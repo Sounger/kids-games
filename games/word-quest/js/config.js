@@ -1,4 +1,5 @@
-// All default settings in one place. Later stages add word lists, math, mobs, audio…
+// All default settings in one place. The teacher menu (settings.js / teacher.js) saves changes
+// on top of these in the browser.
 
 export const CONFIG = {
   view: {
@@ -17,13 +18,36 @@ export const CONFIG = {
     speed: 3.6,          // tiles per second
     radius: 0.28,        // tiles, for bumping into things
   },
-  // Until the teacher menu (stage 6) these are the words, played in this order.
-  words: [
-    { word: 'APPLE', pic: '🍎' }, { word: 'CAT', pic: '🐱' }, { word: 'SUN', pic: '☀️' },
-    { word: 'FISH', pic: '🐟' }, { word: 'BALL', pic: '⚽' }, { word: 'FROG', pic: '🐸' },
-    { word: 'STAR', pic: '⭐' }, { word: 'CAKE', pic: '🎂' }, { word: 'MOON', pic: '🌙' },
-    { word: 'TRAIN', pic: '🚂' },
+  // Word sets the game starts with. The teacher can change them all in the teacher menu.
+  wordSets: [
+    { name: 'Mix', words: [
+      { word: 'APPLE', pic: '🍎' }, { word: 'CAT', pic: '🐱' }, { word: 'SUN', pic: '☀️' },
+      { word: 'FISH', pic: '🐟' }, { word: 'BALL', pic: '⚽' }, { word: 'FROG', pic: '🐸' },
+      { word: 'STAR', pic: '⭐' }, { word: 'CAKE', pic: '🎂' }, { word: 'MOON', pic: '🌙' },
+      { word: 'TRAIN', pic: '🚂' },
+    ] },
+    { name: 'Fruits', words: [
+      { word: 'APPLE', pic: '🍎' }, { word: 'PEAR', pic: '🍐' }, { word: 'LEMON', pic: '🍋' },
+      { word: 'GRAPES', pic: '🍇' }, { word: 'MANGO', pic: '🥭' }, { word: 'KIWI', pic: '🥝' },
+      { word: 'MELON', pic: '🍈' }, { word: 'PEACH', pic: '🍑' }, { word: 'BANANA', pic: '🍌' },
+    ] },
+    { name: 'Animals', words: [
+      { word: 'CAT', pic: '🐱' }, { word: 'DOG', pic: '🐶' }, { word: 'FISH', pic: '🐟' },
+      { word: 'FROG', pic: '🐸' }, { word: 'LION', pic: '🦁' }, { word: 'DUCK', pic: '🦆' },
+      { word: 'BEAR', pic: '🐻' }, { word: 'PIG', pic: '🐷' }, { word: 'COW', pic: '🐮' },
+    ] },
+    { name: 'Colors', words: [
+      { word: 'RED', pic: '🔴' }, { word: 'BLUE', pic: '🔵' }, { word: 'GREEN', pic: '🟢' },
+      { word: 'YELLOW', pic: '🟡' }, { word: 'ORANGE', pic: '🟠' }, { word: 'PURPLE', pic: '🟣' },
+      { word: 'BROWN', pic: '🟤' }, { word: 'BLACK', pic: '⚫' }, { word: 'WHITE', pic: '⚪' },
+    ] },
   ],
+  play: {
+    order: 'order',      // which word comes next: 'order', 'random' or 'manual' (picked on a screen before each game)
+    replay: 'next',      // A on the victory screen: 'next' word or the 'same' word again
+  },
+  mobs: { enabled: true },   // stage 7
+  cave: { enabled: true },   // stage 10
   letters: {
     minFromStart: 5,     // tiles: no letter right next to where the hero starts
     spread: 5,           // tiles: letters keep at least this far apart (relaxed if the map is too small)
@@ -49,6 +73,7 @@ export const CONFIG = {
   audio: {
     master: 0.9,
     sfx: 0.6,            // effects stay quieter than the voice
+    music: 0.35,         // stage 9
   },
   controls: {
     // 'iso'    — each D-pad direction walks along the map grid (screen diagonals), as in the spec.
@@ -58,8 +83,3 @@ export const CONFIG = {
     repeatGuardMs: 120,  // ignore a second press of the same button faster than this
   },
 };
-
-// Quick overrides for testing: ?move=screen, ?swapab=1
-const params = new URLSearchParams(location.search);
-if (params.get('move') === 'screen') CONFIG.controls.dpad = 'screen';
-if (params.get('swapab') === '1') CONFIG.controls.swapAB = true;

@@ -1,4 +1,4 @@
-// Word Quest — stage 5: letters on the map and in chests (opened by solving a sum), decoy letters, voice, sounds.
+// Word Quest — stage 6: letters on the map and in chests, decoys, voice, sounds, teacher menu.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -7,8 +7,10 @@ import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble, picker } from './ui.js';
 import { letterName } from './voice.js';
+import { loadSettings, saveSettings, applySettings, activeWords } from './settings.js';
+import { setupGear, createTeacherMenu } from './teacher.js';
 import { makeProblem } from './math.js';
 import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
@@ -23,6 +25,10 @@ const voice = createVoice(CONFIG.voice);
 const audio = createAudio(CONFIG.audio);
 const sfx = audio.sfx;
 
+let settings = loadSettings();
+applySettings(settings);
+const words = () => activeWords(settings);
+
 let map, hero, word;
 let wordIndex = 0;
 let arrived = 0;          // letters that have landed in their slots
@@ -34,10 +40,11 @@ let quiz = null;          // the open chest window: { chest, problem, sel, busy 
 let bubbleT = -1;         // thought bubble over the hero, seconds left
 
 function startWord(index) {
-  wordIndex = (index + CONFIG.words.length) % CONFIG.words.length;
+  const list = words();
+  wordIndex = ((index % list.length) + list.length) % list.length;
   map = generateMap(Math.floor(Math.random() * 1e9), CONFIG.map);
   hero = new Hero(map.start.x, map.start.y, CONFIG.hero);
-  word = createWord(CONFIG.words[wordIndex], map, CONFIG.letters, CONFIG.chests, CONFIG.decoys);
+  word = createWord(list[wordIndex], map, CONFIG.letters, CONFIG.chests, CONFIG.decoys);
   bubbleT = -1;
   hideBubble();
   chestTarget = null;
@@ -55,7 +62,7 @@ const sayWord = () => voice.spell(word.word, highlightLetter);
 
 function setState(s) {
   state = s;
-  for (const id of ['title', 'show', 'pause', 'win']) $(id).classList.toggle('hidden', id !== (s === 'paused' ? 'pause' : s));
+  for (const id of ['title', 'show', 'pause', 'win', 'pick']) $(id).classList.toggle('hidden', id !== (s === 'paused' ? 'pause' : s));
   document.body.dataset.state = s;
 }
 
@@ -65,11 +72,67 @@ function toggleFullscreen() {
 }
 
 const button = (id, fn) => { $(id).onclick = () => { sfx.click(); fn(); }; };
-button('playBtn', () => startWord(wordIndex));
+// Which word comes next, as the teacher set it: in order, random, or chosen on a screen.
+let started = false;
+function nextGame(kind) {
+  const n = words().length;
+  if (kind === 'same') return startWord(wordIndex);
+  if (settings.play.order === 'manual') return openPicker();
+  if (settings.play.order === 'random') {
+    let i = Math.floor(Math.random() * n);
+    if (n > 1 && started) while (i === wordIndex) i = Math.floor(Math.random() * n);
+    started = true;
+    return startWord(i);
+  }
+  const first = !started;
+  started = true;
+  startWord(first ? wordIndex : wordIndex + 1);
+}
+const afterWin = () => nextGame(settings.play.replay === 'same' ? 'same' : 'next');
+
+let pickSel = 0;
+function openPicker() {
+  picker.open(words(), i => { sfx.click(); started = true; startWord(i); });
+  pickSel = Math.min(pickSel, words().length - 1);
+  setState('pick');
+  picker.select(pickSel);
+}
+function pickInput() {
+  const n = words().length, cols = picker.columns();
+  const moveTo = i => { pickSel = Math.max(0, Math.min(n - 1, i)); picker.select(pickSel); sfx.select(); };
+  if (input.pressed('left')) moveTo(pickSel - 1);
+  if (input.pressed('right')) moveTo(pickSel + 1);
+  if (input.pressed('up')) moveTo(pickSel - cols);
+  if (input.pressed('down')) moveTo(pickSel + cols);
+  if (input.pressed('A')) { sfx.click(); started = true; startWord(pickSel); }
+}
+
+button('playBtn', () => nextGame('first'));
 button('goBtn', () => setState('play'));
 button('resumeBtn', () => setState('play'));
-button('nextBtn', () => startWord(wordIndex + 1));
-button('sameBtn', () => startWord(wordIndex));
+button('nextBtn', afterWin);
+button('sameBtn', () => nextGame('same'));
+
+// ── Teacher menu ──
+let beforeTeacher = 'title';
+const teacher = createTeacherMenu({
+  getSettings: () => settings,
+  onChange(s) {
+    settings = s;
+    if (!saveSettings(settings)) alert('Could not save. There may be too many big pictures — try smaller ones.');
+    applySettings(settings);
+  },
+  onNewWord() { teacher.close(); started = true; nextGame('next'); },
+  onClose() { teacher.close(); setState(beforeTeacher); },
+  sayTest: () => voice.speak(['Hello! Apple. A, P, P, L, E.']),
+});
+setupGear($('gearBtn'), () => {
+  if (state === 'teacher') return;
+  beforeTeacher = state;
+  if (state === 'play') beforeTeacher = 'paused';
+  setState('teacher');
+  teacher.open();
+});
 button('fsBtn', toggleFullscreen);
 $('sayBtn').onclick = sayWord;
 $('showSayBtn').onclick = sayWord;
@@ -253,9 +316,13 @@ function frame(now) {
   if (input.pressed('fullscreen')) toggleFullscreen();
 
   if (state === 'title') {
-    if (input.pressed('A')) startWord(wordIndex);
+    if (input.pressed('A')) nextGame('first');
+  } else if (state === 'pick') {
+    pickInput();
   } else if (state === 'show') {
     if (input.pressed('A')) setState('play');
+  } else if (state === 'teacher') {
+    if (input.pressed('pause')) { teacher.close(); setState(beforeTeacher); }
   } else if (state === 'paused') {
     if (input.pressed('pause') || input.pressed('A')) setState('play');
   } else if (state === 'play') {
@@ -269,7 +336,7 @@ function frame(now) {
     if (celebrateT > 1.6) setState('win');
   } else if (state === 'win') {
     hero.update(dt, { x: 0, y: 0 }, map);
-    if (input.pressed('A')) startWord(wordIndex + 1);
+    if (input.pressed('A')) afterWin();
   }
 
   for (const it of word ? word.rejected : []) { it.rejectT += dt; if (it.rejectT > 1.2) it.rejectT = -2; }
@@ -294,5 +361,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  input, renderer, startWord, CONFIG, voice, audio,
+  input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
 };

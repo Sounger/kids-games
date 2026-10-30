@@ -29,10 +29,17 @@ export function createInput(canvas, cfg) {
     queued.add(name);
   };
 
+  // Typing in the teacher menu must not move the hero.
+  const typing = e => e.target instanceof HTMLElement && e.target.closest('input, textarea, select, [contenteditable]');
+
   addEventListener('keydown', e => {
-    if (KEY_DIRS[e.code]) { held.add(KEY_DIRS[e.code]); e.preventDefault(); }
+    if (typing(e)) return;
+    if (KEY_DIRS[e.code]) {
+      held.add(KEY_DIRS[e.code]);
+      e.preventDefault();
+      if (!e.repeat) press(KEY_DIRS[e.code]);   // a quick tap still counts in menus
+    }
     if (KEY_BUTTONS[e.code]) {
-      if (e.target instanceof HTMLInputElement) return;
       e.preventDefault();
       if (!e.repeat) press(KEY_BUTTONS[e.code]);
     }
