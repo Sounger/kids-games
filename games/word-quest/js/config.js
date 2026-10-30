@@ -74,8 +74,11 @@ export const CONFIG = {
   audio: {
     master: 0.9,
     sfx: 0.6,            // effects stay quieter than the voice
-    music: 0.35,         // stage 9
+    music: 0.5,          // background music, always quieter than the voice
   },
+  // To use your own recording for a track, put the file in the game folder and name it here,
+  // e.g. overworld: 'music/overworld.ogg'. null = the built-in 8-bit music.
+  musicFiles: { title: null, overworld: null, cave: null, victory: null, chest: null },
   controls: {
     // 'iso'    — each D-pad direction walks along the map grid (screen diagonals), as in the spec.
     // 'screen' — up walks up on the screen, right walks right, etc.

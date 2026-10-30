@@ -1,4 +1,4 @@
-// Word Quest — stage 8: letters, chests, decoys, voice, sounds, teacher menu, mobs, living map and the owl.
+// Word Quest — stage 9: letters, chests, decoys, voice, sounds, teacher menu, mobs, living map, owl, 8-bit music.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -17,6 +17,7 @@ import { setupGear, createTeacherMenu } from './teacher.js';
 import { makeProblem } from './math.js';
 import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
+import { createMusic } from './music.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -27,6 +28,7 @@ const input = createInput(canvas, CONFIG.controls);
 const voice = createVoice(CONFIG.voice);
 const audio = createAudio(CONFIG.audio);
 const sfx = audio.sfx;
+const music = createMusic(audio, CONFIG.audio, CONFIG.musicFiles);
 
 let settings = loadSettings();
 applySettings(settings);
@@ -78,6 +80,9 @@ function setState(s) {
   state = s;
   for (const id of ['title', 'show', 'pause', 'win', 'pick']) $(id).classList.toggle('hidden', id !== (s === 'paused' ? 'pause' : s));
   document.body.dataset.state = s;
+  // Background music follows the screen (the teacher menu keeps whatever is playing).
+  const track = { title: 'title', pick: 'title', show: 'overworld', play: 'overworld', paused: 'overworld', chest: 'overworld' }[s];
+  if (track) music.play(track);
 }
 
 function toggleFullscreen() {
@@ -150,6 +155,9 @@ setupGear($('gearBtn'), () => {
 button('fsBtn', toggleFullscreen);
 $('sayBtn').onclick = sayWord;
 $('showSayBtn').onclick = sayWord;
+$('musicBtn').onclick = () => { music.setOn(!music.on); updateMusicBtn(); sfx.click(); };
+const updateMusicBtn = () => { $('musicBtn').style.opacity = music.on ? 1 : 0.45; $('musicBtn').title = music.on ? 'Music: on' : 'Music: off'; };
+updateMusicBtn();
 $('sfxBtn').onclick = () => { audio.setSfx(!audio.sfxOn); updateSfxBtn(); sfx.click(); };
 const updateSfxBtn = () => { $('sfxBtn').textContent = audio.sfxOn ? '🔔' : '🔕'; };
 updateSfxBtn();
@@ -224,6 +232,8 @@ function pickUp(item, { say = true } = {}) {
       celebrateT = 0;
       confetti();
       sfx.win();
+      music.stop(0.3);
+      music.jingle('victory');
       voice.speak(['Great job!', `${word.word.toLowerCase()}!`]);
       setState('celebrate');
     }
@@ -261,6 +271,7 @@ function answer(n) {
     quiz.busy = true;
     mathBox.right(n);
     sfx.chestOpen();
+    music.jingle('chest');
     voice.speak(['Correct!']);
     setTimeout(() => {
       mathBox.close();
@@ -437,6 +448,8 @@ function frame(now) {
   hintT = Math.max(0, hintT - dt);
   if (hint && (hint.picked || hintT <= 0 || state !== 'play')) { hint = null; hintT = 0; }
   life?.update(dt, renderer.view);
+  music.duck(window.speechSynthesis?.speaking);
+  music.setVolume(CONFIG.audio.music);
   renderer.draw(map, hero, now / 1000, word, mobs?.list, { life, owl, hint });
   requestAnimationFrame(frame);
 }
@@ -451,5 +464,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  get mobs() { return mobs; }, get owl() { return owl; }, get life() { return life; }, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
+  get mobs() { return mobs; }, get owl() { return owl; }, get life() { return life; }, music, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
 };

@@ -206,7 +206,7 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
       <div class="t-label">Sound</div>
       ${row('Voice volume', range('voice.volume', 0, 1, 0.1, s.voice.volume) + '<button id="tSayTest">🔊 Test</button>')}
       ${row('Voice speed', range('voice.rate', 0.6, 1.2, 0.05, s.voice.rate), 'slow … fast')}
-      ${row('Music volume', range('audio.music', 0, 1, 0.05, s.audio.music), 'stage 9')}
+      ${row('Music volume', range('audio.music', 0, 1, 0.05, s.audio.music))}
       <div class="t-label">Gamepad</div>
       ${row('D-pad', select('controls.dpad', [['iso', 'Along the map grid (diagonal)'], ['screen', 'Up is up on the screen']], s.controls.dpad))}
       ${row('Swap A and B', toggle('controls.swapAB', s.controls.swapAB), 'if A and B work the wrong way round')}`;

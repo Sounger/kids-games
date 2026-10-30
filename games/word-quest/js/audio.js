@@ -84,14 +84,12 @@ export function createAudio(cfg) {
     bloom: () => arp([1047, 1319, 1568], 0.05, { type: 'sine', vol: 0.06, when: 0.5 }),
     select: () => tone(660, 0.05, { vol: 0.08 }),
     shake: () => { for (let k = 0; k < 4; k++) noise(0.07, { vol: 0.25, freq: 250, q: 1.5, when: k * 0.08 }); tone(110, 0.3, { type: 'triangle', vol: 0.15 }); },
+    // The tunes for these two are music jingles (music.js); here only the noises.
     chestOpen() {
       noise(0.15, { vol: 0.15, freq: 500, q: 1 });
-      arp([784, 988, 1175, 1568, 1976], 0.07, { type: 'triangle', vol: 0.16, when: 0.1 });
       for (let k = 0; k < 6; k++) tone(2500 + Math.random() * 2000, 0.08, { type: 'sine', vol: 0.05, when: 0.3 + k * 0.06 });
     },
     win() {
-      arp([523, 659, 784, 1047, 784, 1047, 1319], 0.11, { vol: 0.13 });
-      arp([262, 330, 392, 523], 0.22, { type: 'triangle', vol: 0.18 });
       for (let k = 0; k < 4; k++) noise(0.4, { vol: 0.15, freq: 600 + k * 300, when: 0.9 + k * 0.25, q: 0.5 });
     },
   };
@@ -138,6 +136,8 @@ export function createAudio(cfg) {
   return {
     ensure,
     sfx,
+    get master() { ensure(); return master; },
+    get noise() { ensure(); return noiseBuf; },
     startAmbient,
     stopAmbient,
     get unlocked() { return !!ctx && ctx.state === 'running'; },
