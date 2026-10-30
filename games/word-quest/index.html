@@ -13,10 +13,11 @@
     body { font-family: "Fredoka", system-ui, sans-serif; color: #fff; user-select: none; }
     #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; image-rendering: pixelated; cursor: pointer; }
     .hidden { display: none !important; }
+    .pixel { font-family: "Press Start 2P", monospace; }
 
     .overlay {
       position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-      gap: 3vh; text-align: center; background: rgba(20, 16, 40, 0.55); padding: 16px;
+      gap: 3vh; text-align: center; background: rgba(20, 16, 40, 0.6); padding: 16px; z-index: 10;
     }
     .logo {
       font-family: "Press Start 2P", monospace; font-size: clamp(32px, 7vw, 110px); line-height: 1.15;
@@ -29,6 +30,10 @@
       background: #ffd23f; color: #2b2140; box-shadow: 0 8px 0 #2b2140;
     }
     .big-btn:active { transform: translateY(6px); box-shadow: 0 2px 0 #2b2140; }
+    .small-btn {
+      font: inherit; font-size: clamp(18px, 2vw, 26px); font-weight: 700; cursor: pointer; min-height: 64px; padding: 8px 24px;
+      border: 4px solid #2b2140; border-radius: 18px; background: rgba(255, 255, 255, 0.9); color: #2b2140;
+    }
     .press { font-size: clamp(22px, 3vw, 40px); font-weight: 700; animation: blink 1s steps(2) infinite; }
     .press b { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: #e94b5b; border: 4px solid #2b2140; }
 
@@ -40,18 +45,59 @@
     .pad-chip.on { color: #fff; }
     .pad-chip.on .dot { background: #4ade80; box-shadow: 0 0 10px #4ade80; }
 
-    .hud { position: fixed; top: 12px; right: 12px; display: flex; gap: 10px; align-items: center; }
+    .hud { position: fixed; top: 12px; right: 12px; display: flex; gap: 10px; align-items: center; z-index: 20; }
     .hud .pad-chip { opacity: 0.85; }
-    body.playing .hud .pad-chip:not(.on) { display: none; }
+    body:not([data-state="title"]) .hud .pad-chip:not(.on) { display: none; }
     .icon-btn {
       width: 56px; height: 56px; border-radius: 16px; border: 3px solid #2b2140; background: rgba(255, 255, 255, 0.85);
       font-size: 28px; cursor: pointer; display: grid; place-items: center; color: #2b2140;
     }
+
+    /* Word bar (top) and slots (bottom), shown while playing */
+    .wordbar, .slots { display: none; }
+    body[data-state="play"] .wordbar, body[data-state="paused"] .wordbar, body[data-state="celebrate"] .wordbar,
+    body[data-state="play"] .slots, body[data-state="paused"] .slots, body[data-state="celebrate"] .slots { display: flex; }
+    .wordbar {
+      position: fixed; top: 12px; left: 50%; transform: translateX(-50%); z-index: 5;
+      align-items: center; gap: 0.5em; padding: 0.3em 0.7em; border-radius: 24px;
+      background: rgba(20, 16, 40, 0.55); font-size: clamp(30px, 5vw, 80px);
+    }
+    .wordbar .pic { font-size: 1.1em; line-height: 1; }
+    .wordbar .w { font-family: "Press Start 2P", monospace; letter-spacing: 0.15em; color: #fff; text-shadow: 0 5px 0 #2b2140; }
+    .slots {
+      position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); z-index: 5;
+      gap: clamp(8px, 1.2vw, 18px); padding: 12px 18px; border-radius: 24px; background: rgba(20, 16, 40, 0.45);
+    }
+    .slot {
+      width: clamp(64px, 8.5vw, 128px); height: clamp(72px, 10vw, 140px); display: grid; place-items: center;
+      font-family: "Press Start 2P", monospace; font-size: clamp(36px, 5.5vw, 84px); color: #fff;
+      border-bottom: 8px solid #fff; border-radius: 6px; background: rgba(255, 255, 255, 0.08);
+    }
+    .slot.filled { border-bottom-color: #ffd23f; background: rgba(255, 255, 255, 0.92); animation: pop 0.45s; }
+    .flyer {
+      position: fixed; left: 0; top: 0; z-index: 30; pointer-events: none;
+      font-family: "Press Start 2P", monospace; font-size: clamp(36px, 5.5vw, 84px);
+    }
+
+    /* Word and victory screens */
+    .bigpic { font-size: clamp(110px, 22vh, 260px); line-height: 1; animation: pop 0.6s; filter: drop-shadow(0 10px 0 rgba(0,0,0,.3)); }
+    .bigword { font-family: "Press Start 2P", monospace; font-size: clamp(44px, 9vw, 150px); letter-spacing: 0.12em; color: #fff; text-shadow: 0 8px 0 #2b2140; }
+    .stars { font-size: clamp(50px, 10vh, 110px); letter-spacing: 0.15em; }
+    .stars span { display: inline-block; animation: pop 0.5s backwards; }
+    .row { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; justify-content: center; }
+
+    .confetti { position: fixed; top: -50px; font-size: clamp(30px, 4vw, 54px); pointer-events: none; z-index: 40; animation: fall linear forwards; }
+
     @keyframes blink { 50% { opacity: 0.35; } }
+    @keyframes pop { 0% { transform: scale(0.3); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+    @keyframes fall { to { transform: translateY(115vh) rotate(600deg); } }
   </style>
 </head>
-<body>
+<body data-state="title">
   <canvas id="game" aria-label="Word Quest map"></canvas>
+
+  <div class="wordbar"><span class="pic" id="barPic"></span><span class="w" id="barWord"></span></div>
+  <div class="slots" id="slots"></div>
 
   <div class="hud">
     <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>
@@ -65,9 +111,26 @@
     <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>
   </section>
 
+  <section class="overlay hidden" id="show">
+    <div class="bigpic" id="showPic"></div>
+    <div class="bigword" id="showWord"></div>
+    <button class="big-btn" id="goBtn">▶ GO!</button>
+    <div class="press">Press <b>A</b></div>
+  </section>
+
   <section class="overlay hidden" id="pause">
     <div class="logo">PAUSE</div>
     <button class="big-btn" id="resumeBtn">▶ GO ON</button>
+  </section>
+
+  <section class="overlay hidden" id="win">
+    <div class="logo">GREAT JOB!</div>
+    <div class="stars"><span>⭐</span><span style="animation-delay:.2s">⭐</span><span style="animation-delay:.4s">⭐</span></div>
+    <div class="row"><div class="bigpic" id="winPic"></div><div class="bigword" id="winWord"></div></div>
+    <div class="row">
+      <button class="big-btn" id="nextBtn">▶ PLAY AGAIN</button>
+      <button class="small-btn" id="sameBtn" title="Play the same word again">🔁 Same word</button>
+    </div>
   </section>
 
   <script type="module" src="js/main.js"></script>

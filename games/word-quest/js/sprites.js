@@ -218,6 +218,62 @@ function heroSprites() {
   return { front: make(HEAD_FRONT, BODY_FRONT), back: make(HEAD_BACK, BODY_BACK), w: 16 * HERO_SCALE, h: 22 * HERO_SCALE };
 }
 
+// ── Letters ────────────────────────────────────────────────────────────
+// 5×7 block font, drawn big with a 3D side so letters read well from the back of the class.
+const FONT = {
+  A: '01110 10001 10001 11111 10001 10001 10001', B: '11110 10001 10001 11110 10001 10001 11110',
+  C: '01110 10001 10000 10000 10000 10001 01110', D: '11110 10001 10001 10001 10001 10001 11110',
+  E: '11111 10000 10000 11110 10000 10000 11111', F: '11111 10000 10000 11110 10000 10000 10000',
+  G: '01110 10001 10000 10111 10001 10001 01111', H: '10001 10001 10001 11111 10001 10001 10001',
+  I: '01110 00100 00100 00100 00100 00100 01110', J: '00111 00010 00010 00010 00010 10010 01100',
+  K: '10001 10010 10100 11000 10100 10010 10001', L: '10000 10000 10000 10000 10000 10000 11111',
+  M: '10001 11011 10101 10101 10001 10001 10001', N: '10001 10001 11001 10101 10011 10001 10001',
+  O: '01110 10001 10001 10001 10001 10001 01110', P: '11110 10001 10001 11110 10000 10000 10000',
+  Q: '01110 10001 10001 10001 10101 10010 01101', R: '11110 10001 10001 11110 10100 10010 10001',
+  S: '01111 10000 10000 01110 00001 00001 11110', T: '11111 00100 00100 00100 00100 00100 00100',
+  U: '10001 10001 10001 10001 10001 10001 01110', V: '10001 10001 10001 10001 10001 01010 00100',
+  W: '10001 10001 10001 10101 10101 10101 01010', X: '10001 10001 01010 00100 01010 10001 10001',
+  Y: '10001 10001 01010 00100 00100 00100 00100', Z: '11111 00001 00010 00100 01000 10000 11111',
+};
+export const LETTER_COLORS = [
+  ['#ff5a5f', '#b3262b', '#ffb3b5'], ['#ff9f1c', '#b35f00', '#ffd59a'], ['#ffd23f', '#b38a00', '#fff1a8'],
+  ['#3ddc84', '#16834a', '#b2f5cf'], ['#4dabf7', '#1c5f9e', '#bfe3ff'], ['#b57cf6', '#6a35b0', '#e3cdff'],
+];
+const LETTER_PX = 5, DEPTH = 5;
+
+function letterSprite(ch, colorIdx) {
+  const rows = (FONT[ch] || FONT.A).split(' ');
+  const [face, side, hi] = LETTER_COLORS[colorIdx % LETTER_COLORS.length].map(hex);
+  const w = 5 * LETTER_PX + DEPTH + 2, h = 7 * LETTER_PX + DEPTH + 2;
+  const p = new PixelBuf(w, h);
+  const on = (x, y) => rows[y]?.[x] === '1';
+  // Side (extrusion), then face on top, then a light top edge on each block.
+  for (let d = DEPTH; d >= 1; d--) {
+    rows.forEach((row, y) => [...row].forEach((c, x) => { if (c === '1') p.rect(1 + x * LETTER_PX + d, 1 + y * LETTER_PX + d, LETTER_PX, LETTER_PX, side); }));
+  }
+  rows.forEach((row, y) => [...row].forEach((c, x) => {
+    if (c !== '1') return;
+    p.rect(1 + x * LETTER_PX, 1 + y * LETTER_PX, LETTER_PX, LETTER_PX, face);
+    if (!on(x, y - 1)) p.rect(1 + x * LETTER_PX, 1 + y * LETTER_PX, LETTER_PX, 1, hi);
+  }));
+  p.outline(hex('#2b2140'));
+  return p.toCanvas();
+}
+
+const letterCache = new Map();
+export function getLetterSprite(ch, colorIdx) {
+  const key = ch + colorIdx;
+  if (!letterCache.has(key)) letterCache.set(key, letterSprite(ch, colorIdx));
+  return letterCache.get(key);
+}
+
+function glow() {
+  const p = new PixelBuf(40, 16);
+  p.ellipse(20, 8, 19, 7, [255, 240, 150], 70);
+  p.ellipse(20, 8, 12, 4, [255, 250, 200], 110);
+  return p.toCanvas();
+}
+
 function shadow(rx, ry) {
   const p = new PixelBuf(rx * 2 + 2, ry * 2 + 2);
   p.ellipse(rx + 1, ry + 1, rx, ry, [20, 40, 20], 70);
@@ -238,5 +294,6 @@ export function buildSprites() {
     hero: heroSprites(),
     shadowBig: shadow(16, 6),
     shadowSmall: shadow(9, 4),
+    glow: glow(),
   };
 }

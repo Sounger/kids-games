@@ -184,8 +184,23 @@ export function generateMap(seed, cfg) {
     return null;
   };
 
+  // Every tile the hero can walk to, with its walking distance from the start.
+  const reachableTiles = () => {
+    const dist = new Int32Array(N * N).fill(-1), q = [idx(door.i, door.j)], out = [];
+    dist[q[0]] = 0;
+    for (let h = 0; h < q.length; h++) {
+      const k = q[h], i = k % N, j = (k - i) / N;
+      out.push({ i, j, d: dist[k] });
+      for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const ni = i + di, nj = j + dj;
+        if (walkable(ni, nj) && dist[idx(ni, nj)] < 0) { dist[idx(ni, nj)] = dist[k] + 1; q.push(idx(ni, nj)); }
+      }
+    }
+    return out;
+  };
+
   return {
-    N, ground, obj, flowers, objects, start, door, bridges, MARGIN,
+    N, ground, obj, flowers, objects, start, door, bridges, MARGIN, reachableTiles,
     groundAt: (i, j) => (inside(i, j) ? ground[idx(i, j)] : outsideGround(i, j)),
     idx, inside, walkable, nearestWalkable,
     pathTo: (from, to) => findPath(N, walkable, from, to),

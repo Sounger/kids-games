@@ -17,6 +17,19 @@ export const CONFIG = {
     speed: 3.6,          // tiles per second
     radius: 0.28,        // tiles, for bumping into things
   },
+  // Until the teacher menu (stage 6) these are the words, played in this order.
+  words: [
+    { word: 'APPLE', pic: '🍎' }, { word: 'CAT', pic: '🐱' }, { word: 'SUN', pic: '☀️' },
+    { word: 'FISH', pic: '🐟' }, { word: 'BALL', pic: '⚽' }, { word: 'FROG', pic: '🐸' },
+    { word: 'STAR', pic: '⭐' }, { word: 'CAKE', pic: '🎂' }, { word: 'MOON', pic: '🌙' },
+    { word: 'TRAIN', pic: '🚂' },
+  ],
+  letters: {
+    minFromStart: 5,     // tiles: no letter right next to where the hero starts
+    spread: 5,           // tiles: letters keep at least this far apart (relaxed if the map is too small)
+    pickupRadius: 0.6,   // tiles: walking this close picks the letter up by itself
+    reachA: 1.4,         // tiles: pressing A picks up a letter this close
+  },
   controls: {
     // 'iso'    — each D-pad direction walks along the map grid (screen diagonals), as in the spec.
     // 'screen' — up walks up on the screen, right walks right, etc.

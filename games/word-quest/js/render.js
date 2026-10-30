@@ -4,6 +4,7 @@
 import { TW, TH, toScreen, toWorld } from './iso.js';
 import { GRASS, PATH, SAND, WATER, BRIDGE } from './map.js';
 import { makeCanvas } from './util.js';
+import { getLetterSprite } from './sprites.js';
 
 export function createRenderer(canvas, sprites, viewCfg) {
   const screen = canvas.getContext('2d');
@@ -41,9 +42,15 @@ export function createRenderer(canvas, sprites, viewCfg) {
     return toWorld(lx - o.x, ly - o.y);
   }
 
+  // World position (in tiles) → page position in CSS pixels, for HTML effects flying out of the map.
+  function worldToClient(x, y, lift = 0) {
+    const o = offset(), s = toScreen(x, y);
+    return { x: (s.x + o.x) * view.scale / view.dpr, y: (s.y + o.y - lift) * view.scale / view.dpr };
+  }
+
   function tileHash(i, j) { return ((i * 73856093) ^ (j * 19349663)) >>> 0; }
 
-  function draw(map, hero, time) {
+  function draw(map, hero, time, word) {
     const o = offset();
     ctx.fillStyle = '#245a32';
     ctx.fillRect(0, 0, view.w, view.h);
@@ -94,6 +101,15 @@ export function createRenderer(canvas, sprites, viewCfg) {
       if (ob.type === 'tree') ctx.drawImage(sprites.shadowBig, sx - 17, sy - 6);
       items.push({ depth: ob.depth, ob, sx, sy });
     }
+    for (const it of word ? word.left : []) {
+      const s = toScreen(it.x, it.y);
+      const sx = Math.round(s.x + o.x), sy = Math.round(s.y + o.y);
+      if (sx < -40 || sx > view.w + 40 || sy < -20 || sy > view.h + 60) continue;
+      ctx.globalAlpha = 0.7 + Math.sin(time * 4 + it.phase) * 0.3;
+      ctx.drawImage(sprites.glow, sx - 20, sy - 8);
+      ctx.globalAlpha = 1;
+      items.push({ depth: it.x + it.y, letter: it, sx, sy });
+    }
     ctx.drawImage(sprites.shadowSmall, Math.round(heroPt.x) - 10, Math.round(heroPt.y) - 4);
     items.push({ depth: hero.depth, hero: true });
 
@@ -101,6 +117,12 @@ export function createRenderer(canvas, sprites, viewCfg) {
     items.sort((a, b) => a.depth - b.depth);
     for (const it of items) {
       if (it.hero) { drawHero(hero, heroPt); continue; }
+      if (it.letter) {
+        const img = getLetterSprite(it.letter.ch, it.letter.color);
+        const bob = Math.round(Math.abs(Math.sin(time * 3 + it.letter.phase)) * 6);
+        ctx.drawImage(img, it.sx - Math.floor(img.width / 2), it.sy - img.height - 4 - bob);
+        continue;
+      }
       const spr = it.ob.type === 'tree' ? sprites.trees[it.ob.variant] : it.ob.type === 'rock' ? sprites.rock : sprites.house;
       const x = it.sx - spr.ax, y = it.sy - spr.ay;
       // See-through when the hero walks behind it.
@@ -136,5 +158,5 @@ export function createRenderer(canvas, sprites, viewCfg) {
     }
   }
 
-  return { draw, follow, screenToWorld, view };
+  return { draw, follow, screenToWorld, worldToClient, view };
 }
