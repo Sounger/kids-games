@@ -51,6 +51,23 @@ function shrinkImage(file) {
   });
 }
 
+// Questions and messages inside the menu itself. (The browser's own confirm/alert boxes can be
+// blocked — then they answer "no" at once and delete did nothing.)
+function ask(text, yes = 'Yes', no = 'Cancel') {
+  return new Promise(resolve => {
+    $('tAskText').textContent = text;
+    $('tAskYes').textContent = yes;
+    $('tAskNo').textContent = no;
+    $('tAskNo').classList.toggle('hidden', !no);
+    $('tAsk').classList.remove('hidden');
+    const done = v => { $('tAsk').classList.add('hidden'); resolve(v); };
+    $('tAskYes').onclick = () => done(true);
+    $('tAskNo').onclick = () => done(false);
+    $('tAskYes').focus();
+  });
+}
+export const tell = text => ask(text, 'OK', '');
+
 export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, sayTest, players, onPlayers }) {
   let tab = 'words';
   let editing = null;        // index of the word being edited, or null
@@ -82,15 +99,15 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
     try {
       const data = cleanSettings(JSON.parse(await file.text()));
       const n = data.sets.reduce((k, s) => k + s.words.length, 0);
-      if (!confirm(`Replace all words and settings with this file?\n(${data.sets.length} sets, ${n} words)`)) return;
+      if (!await ask(`Replace all words and settings with this file?\n(${data.sets.length} sets, ${n} words)`, 'Replace')) return;
       onChange(data);
       render();
     } catch (err) {
-      alert('This file could not be read. Please choose a file saved with "Export".');
+      tell('This file could not be read. Please choose a file saved with "Export".');
     }
   };
-  $('tReset').onclick = () => {
-    if (!confirm('Go back to the starting words and settings? Your own words will be removed.')) return;
+  $('tReset').onclick = async () => {
+    if (!await ask('Go back to the starting words and settings? Your own words will be removed.', 'Reset')) return;
     onChange(defaultSettings());
     render();
   };
@@ -144,8 +161,8 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
       $('tSetName').select();
     };
     $('tSetName').onchange = e => { cur.name = e.target.value.trim() || 'Words'; change(); };
-    $('tDelSet').onclick = () => {
-      if (!confirm(`Delete the set "${cur.name}" and its ${cur.words.length} words?`)) return;
+    $('tDelSet').onclick = async () => {
+      if (!await ask(`Delete the set "${cur.name}" and its ${cur.words.length} words?`, '🗑️ Delete')) return;
       S().sets = S().sets.filter(x => x.id !== cur.id);
       S().activeSet = S().sets[0].id;
       editing = null; change();
@@ -154,9 +171,9 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
     $('tBody').querySelectorAll('[data-up]').forEach(b => b.onclick = () => move(+b.dataset.up, -1));
     $('tBody').querySelectorAll('[data-down]').forEach(b => b.onclick = () => move(+b.dataset.down, 1));
     $('tBody').querySelectorAll('[data-edit]').forEach(b => b.onclick = () => { editing = +b.dataset.edit; pendingPic = ''; render(); $('tWord').focus(); });
-    $('tBody').querySelectorAll('[data-del]').forEach(b => b.onclick = () => {
+    $('tBody').querySelectorAll('[data-del]').forEach(b => b.onclick = async () => {
       const i = +b.dataset.del;
-      if (!confirm(`Delete "${cur.words[i].word}"?`)) return;
+      if (!await ask(`Delete "${cur.words[i].word}"?`, '🗑️ Delete')) return;
       cur.words.splice(i, 1); editing = null; change();
     });
     $('tPic').oninput = e => { pendingPic = e.target.value.trim(); $('tPicPreview').innerHTML = picHTML(pendingPic); };
@@ -241,15 +258,15 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
       <div class="t-line"><button id="tResetScores" ${list.length ? '' : 'disabled'}>↺ Reset all stars</button></div>`;
     $('tBody').querySelectorAll('[data-avatar]').forEach(el => el.onchange = () => { players.setAvatar(el.dataset.avatar, el.value); onPlayers(); });
     $('tBody').querySelectorAll('[data-name]').forEach(el => el.onchange = () => {
-      if (!NAME_RE.test(el.value.trim())) { alert('Please use letters only.'); render(); return; }
+      if (!NAME_RE.test(el.value.trim())) { tell('Please use letters only.'); render(); return; }
       players.rename(el.dataset.name, el.value); onPlayers();
     });
-    $('tBody').querySelectorAll('[data-delp]').forEach(b => b.onclick = () => {
+    $('tBody').querySelectorAll('[data-delp]').forEach(b => b.onclick = async () => {
       const p = list.find(x => x.id === b.dataset.delp);
-      if (!confirm(`Delete ${p.name}?`)) return;
+      if (!await ask(`Delete ${p.name}?`, '🗑️ Delete')) return;
       players.remove(p.id); onPlayers(); render();
     });
-    $('tResetScores').onclick = () => { if (confirm("Set everyone's stars and crystals back to 0?")) { players.resetScores(); onPlayers(); render(); } };
+    $('tResetScores').onclick = async () => { if (await ask("Set everyone's stars and crystals back to 0?", 'Reset')) { players.resetScores(); onPlayers(); render(); } };
   }
 
   function render() {

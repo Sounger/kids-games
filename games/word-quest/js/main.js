@@ -13,7 +13,7 @@ import { describePlace } from './hints.js';
 import { createMobs } from './mobs.js';
 import { letterName } from './voice.js';
 import { loadSettings, saveSettings, applySettings, activeWords } from './settings.js';
-import { setupGear, createTeacherMenu } from './teacher.js';
+import { setupGear, createTeacherMenu, tell } from './teacher.js';
 import { makeProblem } from './math.js';
 import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
@@ -235,7 +235,7 @@ const teacher = createTeacherMenu({
   onPlayers: updatePlayer,
   onChange(s) {
     settings = s;
-    if (!saveSettings(settings)) alert('Could not save. There may be too many big pictures — try smaller ones.');
+    if (!saveSettings(settings)) tell('Could not save. There may be too many big pictures — try smaller ones.');
     applySettings(settings);
   },
   onNewWord() { teacher.close(); started = true; nextGame('next'); },

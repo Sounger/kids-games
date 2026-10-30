@@ -154,7 +154,11 @@
 
     /* Teacher menu */
     .teacher { background: rgba(20, 16, 40, 0.75); z-index: 50; justify-content: center; }
+    .t-ask { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: rgba(43, 33, 64, 0.55); }
+    .t-ask-box { max-width: 520px; margin: 16px; padding: 22px 26px; border-radius: 20px; background: #fff8ec; border: 4px solid #2b2140; box-shadow: 0 8px 0 #2b2140; font-size: 20px; white-space: pre-line; }
+    .t-ask-box p { margin: 0 0 16px; }
     .t-panel {
+      position: relative;
       width: min(980px, 100%); max-height: 94vh; display: flex; flex-direction: column; text-align: left;
       background: #fff8ec; color: #2b2140; border: 5px solid #2b2140; border-radius: 24px; overflow: hidden; font-size: 18px; user-select: text;
     }
@@ -308,6 +312,12 @@
         <button id="tNewWord" title="Leave this word and start a new one">▶ New word now</button>
         <button class="t-primary" id="tDone">✔ Done</button>
       </footer>
+      <div class="t-ask hidden" id="tAsk">
+        <div class="t-ask-box">
+          <p id="tAskText"></p>
+          <div class="t-line"><button class="t-primary" id="tAskYes">Yes</button><button id="tAskNo">Cancel</button></div>
+        </div>
+      </div>
     </div>
   </section>
 
