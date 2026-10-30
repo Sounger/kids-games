@@ -158,13 +158,6 @@
     .podium .place .em { font-size: 64px; display: block; }
     .podium .place.first { transform: scale(1.15); box-shadow: 0 0 40px var(--gold), 0 8px 0 #0005; }
 
-    /* ── question box (instead of the browser's confirm, which can be blocked) ── */
-    .ask { position: fixed; inset: 0; z-index: 60; display: grid; place-items: center; background: rgba(20, 8, 50, 0.7); padding: 16px; }
-    .ask-box { max-width: 560px; padding: 26px 30px; border-radius: 26px; background: var(--stage-hi); border: 6px solid var(--gold); text-align: center; font-size: 28px; font-weight: 600; box-shadow: 0 0 40px #facc1566; }
-    .ask-box p { margin: 0 0 20px; }
-    .ask-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
-    .link-box { width: min(100%, 520px); font: inherit; font-size: 16px; padding: 8px 12px; border-radius: 12px; border: 3px solid var(--gold); user-select: text; }
-
     /* ── confetti ── */
     .confetti { position: fixed; top: -40px; font-size: 34px; pointer-events: none; z-index: 50; animation: fall linear forwards; }
 
@@ -255,13 +248,6 @@
     <div class="banner">Everyone is a star! ⭐</div>
     <button class="big-btn" id="againBtn">🔄 Play again</button>
   </section>
-
-  <div class="ask hidden" id="ask">
-    <div class="ask-box">
-      <p id="askText"></p>
-      <div class="ask-btns"><button class="big-btn" id="askYes">Yes</button><button class="small-btn" id="askNo">No</button></div>
-    </div>
-  </div>
 
   <script>
     // ── Words: short, picture-friendly, all uppercase ──
@@ -450,28 +436,8 @@
       const list = myWords().map(([w, pic]) => `${w.toLowerCase()} ${pic === '❓' ? '' : pic}`.trim()).join('\n');
       const url = `${location.origin}${location.pathname}?words=${encodeURIComponent(list)}`;
       try { await navigator.clipboard.writeText(url); $('copyNote').textContent = '🔗 Link copied! Open it on another computer to get these words.'; }
-      catch (e) {
-        // Copying was not allowed: show the link so it can be copied by hand.
-        $('copyNote').innerHTML = 'Copy this link:<br>';
-        const box = document.createElement('input');
-        box.className = 'link-box'; box.readOnly = true; box.value = url;
-        $('copyNote').appendChild(box);
-        box.focus(); box.select();
-      }
+      catch (e) { window.prompt('Copy this link:', url); }
     };
-
-    // A yes/no question on the page itself.
-    function ask(text, yes, no) {
-      return new Promise(resolve => {
-        $('askText').textContent = text;
-        $('askYes').textContent = yes;
-        $('askNo').textContent = no;
-        $('ask').classList.remove('hidden');
-        const done = v => { $('ask').classList.add('hidden'); resolve(v); };
-        $('askYes').onclick = () => done(true);
-        $('askNo').onclick = () => done(false);
-      });
-    }
 
     // Opening a shared link (?words=...) loads its words into "My words".
     (function loadWordsFromLink() {
@@ -479,15 +445,11 @@
       if (shared === null) return;
       history.replaceState(null, '', location.pathname);
       if (!parseWords(shared).words.length) return;
-      const use = () => {
-        saveMyWords(shared);
-        settings.topic = 'My';
-        choiceGroup($('topicChoices'), 'topic', TOPICS);
-        updateSetup();
-      };
-      if (myWordsText.trim() && myWordsText.trim() !== shared.trim()) {
-        ask('Replace your words with the words from this link?', '✔ Replace', 'Keep mine').then(yes => { if (yes) use(); });
-      } else use();
+      if (myWordsText.trim() && myWordsText.trim() !== shared.trim() &&
+          !window.confirm('Replace your words with the words from this link?')) return;
+      saveMyWords(shared);
+      settings.topic = 'My';
+      choiceGroup($('topicChoices'), 'topic', TOPICS);
     })();
     updateSetup();
 
