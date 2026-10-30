@@ -50,7 +50,10 @@ export function createRenderer(canvas, sprites, viewCfg) {
 
   function tileHash(i, j) { return ((i * 73856093) ^ (j * 19349663)) >>> 0; }
 
-  function draw(map, hero, time, word, mobs = []) {
+  // extra: { life, owl, hint } — living-map details, the owl, and the owl's arrow target.
+  function draw(map, hero, time, word, mobs = [], extra = {}) {
+    const { life, owl, hint } = extra;
+    const blooms = new Map((life?.blooms || []).filter(b => b.t < 0.6).map(b => [map.idx(b.i, b.j), b.t / 0.6]));
     const o = offset();
     ctx.fillStyle = '#245a32';
     ctx.fillRect(0, 0, view.w, view.h);
@@ -71,8 +74,24 @@ export function createRenderer(canvas, sprites, viewCfg) {
         else if (g === WATER) img = sprites.water[waterFrame];
         else if (g === BRIDGE) img = sprites.bridge;
         ctx.drawImage(img, x, y);
-        if (inMap && map.flowers[k] >= 0) ctx.drawImage(sprites.flowers[map.flowers[k]], x, y);
+        if (inMap && map.flowers[k] >= 0) {
+          const grow = blooms.get(k);
+          if (grow === undefined) ctx.drawImage(sprites.flowers[map.flowers[k]], x, y);
+          else {
+            const g = Math.min(1, grow * 1.3), w = Math.round(TW * g), h = Math.round(TH * g);
+            ctx.drawImage(sprites.flowers[map.flowers[k]], x + (TW - w) / 2, y + (TH - h) / 2, w, h);
+          }
+        }
       }
+    }
+
+    // Grass swaying in the wind.
+    for (const t of map.tufts) {
+      const s = toScreen(t.i, t.j);
+      const x = Math.round(s.x + o.x + t.ox), y = Math.round(s.y + o.y + t.oy);
+      if (x < -10 || x > view.w || y < -10 || y > view.h + 10) continue;
+      const w = Math.sin(time * 1.8 + t.phase + t.i * 0.3);
+      ctx.drawImage(sprites.tuft[w < -0.35 ? 0 : w > 0.35 ? 2 : 1], x - 5, y - 6);
     }
 
     // 2. Where the mouse path ends — a pulsing diamond.
@@ -136,6 +155,10 @@ export function createRenderer(canvas, sprites, viewCfg) {
     }
     ctx.drawImage(sprites.shadowSmall, Math.round(heroPt.x) - 10, Math.round(heroPt.y) - 4);
     items.push({ depth: hero.depth, hero: true });
+    if (owl) {
+      const s = toScreen(owl.x, owl.y);
+      items.push({ depth: owl.x + owl.y, owl, sx: Math.round(s.x + o.x), sy: Math.round(s.y + o.y) });
+    }
 
     // 4. Objects and hero, back to front
     items.sort((a, b) => a.depth - b.depth);
@@ -148,6 +171,12 @@ export function createRenderer(canvas, sprites, viewCfg) {
         continue;
       }
       if (it.mob) { drawMob(it.mob, it.sx, it.sy, time); continue; }
+      if (it.owl) {
+        const img = (time % 3.2) < 0.15 ? sprites.owl.blink : sprites.owl.open;
+        const tilt = it.owl.talkT > 0 ? Math.round(Math.sin(time * 10) * 2) : 0;
+        ctx.drawImage(img, it.sx - img.width / 2 + tilt, it.sy - img.height + 6);
+        continue;
+      }
       if (it.rejected) { drawRejected(it.rejected, it.sx, it.sy); continue; }
       if (it.letter) {
         const img = getLetterSprite(it.letter.ch, it.letter.color);
@@ -164,6 +193,9 @@ export function createRenderer(canvas, sprites, viewCfg) {
       ctx.drawImage(spr.img, x, y);
       ctx.globalAlpha = 1;
     }
+
+    if (life) drawLife(life, o, time);
+    if (hint) drawArrow(heroPt, hint, o, time, hero.z);
 
     // 5. Scale up to the screen
     screen.imageSmoothingEnabled = false;
@@ -191,6 +223,62 @@ export function createRenderer(canvas, sprites, viewCfg) {
       ctx.drawImage(sprites.puff, x + img.width / 2 - w / 2, y + img.height / 2 - h / 2, w, h);
     }
     ctx.globalAlpha = 1;
+  }
+
+  function drawLife(life, o, time) {
+    // Cloud shadows drift over everything.
+    ctx.fillStyle = 'rgba(20, 40, 30, 0.13)';
+    for (const c of life.clouds) {
+      const s = toScreen(c.x, c.y);
+      ctx.beginPath();
+      ctx.ellipse(s.x + o.x, s.y + o.y, c.r * TW / 2, c.r * TH / 2, 0, 0, Math.PI * 2);
+      ctx.ellipse(s.x + o.x + c.r * 18, s.y + o.y - c.r * 4, c.r * TW / 3, c.r * TH / 3, 0, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    for (const b of life.butterflies) {
+      const s = toScreen(b.x, b.y);
+      const img = sprites.butterflies[b.color][Math.floor(time * 8 + b.phase) % 2];
+      ctx.drawImage(img, Math.round(s.x + o.x - img.width / 2), Math.round(s.y + o.y - b.z + Math.sin(b.phase * 4) * 3));
+    }
+    for (const b of life.birds) {
+      const img = sprites.bird[Math.floor(b.flap * 6) % 2];
+      ctx.save();
+      if (b.vx < 0) { ctx.translate(Math.round(b.x), 0); ctx.scale(-1, 1); ctx.drawImage(img, 0, Math.round(b.y)); }
+      else ctx.drawImage(img, Math.round(b.x), Math.round(b.y));
+      ctx.restore();
+    }
+    if (life.weather === 'rain') {
+      ctx.fillStyle = 'rgba(40, 60, 100, 0.2)';
+      ctx.fillRect(0, 0, view.w, view.h);
+      ctx.fillStyle = 'rgba(200, 225, 255, 0.75)';
+      for (const d of life.drops) {
+        const x = Math.round(d.x * view.w), y = Math.round(d.y * view.h);
+        ctx.fillRect(x, y, 1, 5); ctx.fillRect(x - 1, y + 5, 1, 2);
+      }
+    } else if (life.weather === 'evening') {
+      ctx.fillStyle = 'rgba(255, 130, 60, 0.16)';
+      ctx.fillRect(0, 0, view.w, view.h);
+      const g = ctx.createLinearGradient(0, 0, 0, view.h);
+      g.addColorStop(0, 'rgba(90, 40, 120, 0.22)'); g.addColorStop(0.5, 'rgba(90, 40, 120, 0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, view.w, view.h);
+    }
+  }
+
+  // The owl's arrow: hovers by the hero and points towards the letter.
+  function drawArrow(heroPt, target, o, time, z) {
+    const t = toScreen(target.x, target.y);
+    const dx = t.x + o.x - heroPt.x, dy = t.y + o.y - heroPt.y, d = Math.hypot(dx, dy);
+    if (d < 30) return;
+    const ux = dx / d, uy = dy / d, r = 30 + Math.sin(time * 8) * 4;
+    const cx = heroPt.x + ux * r, cy = heroPt.y - 16 - z + uy * r;
+    const pts = [[14, 0], [0, -9], [0, -4], [-10, -4], [-10, 4], [0, 4], [0, 9]]
+      .map(([px, py]) => [Math.round(cx + px * ux - py * uy), Math.round(cy + px * uy + py * ux)]);
+    ctx.beginPath();
+    pts.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fillStyle = '#ffd23f'; ctx.fill();
+    ctx.lineWidth = 2; ctx.strokeStyle = '#2b2140'; ctx.stroke();
   }
 
   function drawMob(m, sx, sy, time) {

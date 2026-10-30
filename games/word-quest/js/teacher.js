@@ -200,7 +200,8 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
       <div class="t-label">Map</div>
       ${row('Decoy letters', toggle('decoys.enabled', s.decoys.enabled))}
       ${row('How many decoys', select('decoys.count', [1, 2, 3, 4, 5, 6].map(n => [n, n]), s.decoys.count))}
-      ${row('Raccoon, slimes and bee', toggle('mobs.enabled', s.mobs.enabled), 'stage 7')}
+      ${row('Raccoon, slimes and bee', toggle('mobs.enabled', s.mobs.enabled))}
+      ${row('Weather', toggle('weather.enabled', s.weather.enabled), 'sometimes light rain or evening light')}
       ${row('Secret cave', toggle('cave.enabled', s.cave.enabled), 'stage 10')}
       <div class="t-label">Sound</div>
       ${row('Voice volume', range('voice.volume', 0, 1, 0.1, s.voice.volume) + '<button id="tSayTest">🔊 Test</button>')}

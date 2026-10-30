@@ -21,6 +21,7 @@ export function defaultSettings() {
     decoys: clone(CONFIG.decoys),
     mobs: clone(CONFIG.mobs),
     cave: clone(CONFIG.cave),
+    weather: clone(CONFIG.weather),
     voice: { rate: CONFIG.voice.rate, volume: CONFIG.voice.volume },
     audio: { music: CONFIG.audio.music },
     controls: { dpad: CONFIG.controls.dpad, swapAB: CONFIG.controls.swapAB },
@@ -55,6 +56,7 @@ export function cleanSettings(raw) {
     decoys: { enabled: pick(raw.decoys?.enabled, v => typeof v === 'boolean', d.decoys.enabled), count: num(raw.decoys?.count, 0, 8, d.decoys.count) },
     mobs: { enabled: pick(raw.mobs?.enabled, v => typeof v === 'boolean', d.mobs.enabled) },
     cave: { enabled: pick(raw.cave?.enabled, v => typeof v === 'boolean', d.cave.enabled) },
+    weather: { enabled: pick(raw.weather?.enabled, v => typeof v === 'boolean', d.weather.enabled) },
     voice: { rate: num(raw.voice?.rate, 0.5, 1.5, d.voice.rate), volume: num(raw.voice?.volume, 0, 1, d.voice.volume) },
     audio: { music: num(raw.audio?.music, 0, 1, d.audio.music) },
     controls: {
@@ -83,6 +85,7 @@ export function applySettings(s) {
   Object.assign(CONFIG.decoys, s.decoys);
   Object.assign(CONFIG.mobs, s.mobs);
   Object.assign(CONFIG.cave, s.cave);
+  Object.assign(CONFIG.weather, s.weather);
   Object.assign(CONFIG.voice, s.voice);
   CONFIG.audio.music = s.audio.music;
   Object.assign(CONFIG.controls, s.controls);

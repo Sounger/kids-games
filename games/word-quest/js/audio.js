@@ -80,6 +80,8 @@ export function createAudio(cfg) {
       o.connect(g).connect(sfxBus);
       o.start(t); lfo.start(t); o.stop(t + 0.85); lfo.stop(t + 0.85);
     },
+    hoot: () => { tone(420, 0.25, { type: 'sine', vol: 0.18, to: 380 }); tone(400, 0.35, { type: 'sine', vol: 0.18, to: 340, when: 0.32 }); },
+    bloom: () => arp([1047, 1319, 1568], 0.05, { type: 'sine', vol: 0.06, when: 0.5 }),
     select: () => tone(660, 0.05, { vol: 0.08 }),
     shake: () => { for (let k = 0; k < 4; k++) noise(0.07, { vol: 0.25, freq: 250, q: 1.5, when: k * 0.08 }); tone(110, 0.3, { type: 'triangle', vol: 0.15 }); },
     chestOpen() {
@@ -94,9 +96,50 @@ export function createAudio(cfg) {
     },
   };
 
+  // Soft background sounds: wind always; birds by day, rain, or crickets in the evening.
+  let ambientNodes = [], ambientTimer = null;
+  function stopAmbient() {
+    ambientNodes.forEach(n => { try { n.stop(); } catch (e) {} });
+    ambientNodes = [];
+    clearInterval(ambientTimer);
+  }
+  function startAmbient(weather) {
+    stopAmbient();
+    if (!ensure()) return;
+    const loopNoise = (type, freq, vol) => {
+      const src = ctx.createBufferSource(), f = ctx.createBiquadFilter(), g = ctx.createGain();
+      src.buffer = noiseBuf; src.loop = true;
+      f.type = type; f.frequency.value = freq;
+      g.gain.value = vol;
+      src.connect(f).connect(g).connect(sfxBus);
+      src.start();
+      ambientNodes.push(src);
+      return g;
+    };
+    const wind = loopNoise('lowpass', 380, 0.05);
+    const lfo = ctx.createOscillator(), depth = ctx.createGain();
+    lfo.frequency.value = 0.12; depth.gain.value = 0.035;
+    lfo.connect(depth).connect(wind.gain);
+    lfo.start();
+    ambientNodes.push(lfo);
+    if (weather === 'rain') loopNoise('highpass', 2500, 0.05);
+    ambientTimer = setInterval(() => {
+      if (Math.random() < 0.5) return;
+      if (weather === 'clear') {
+        const f = 2200 + Math.random() * 1500;
+        tone(f, 0.08, { type: 'sine', vol: 0.04, to: f * 1.4 });
+        tone(f * 1.1, 0.1, { type: 'sine', vol: 0.035, to: f * 1.5, when: 0.12 });
+      } else if (weather === 'evening') {
+        for (let k = 0; k < 3; k++) tone(4400, 0.03, { type: 'square', vol: 0.012, when: k * 0.06 });
+      }
+    }, 2500);
+  }
+
   return {
     ensure,
     sfx,
+    startAmbient,
+    stopAmbient,
     get unlocked() { return !!ctx && ctx.state === 'running'; },
     get sfxOn() { return sfxOn; },
     setSfx(on) {

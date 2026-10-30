@@ -152,6 +152,14 @@ export function generateMap(seed, cfg) {
     if (ground[idx(i, j)] === GRASS && !obj[idx(i, j)] && rnd() < cfg.flowerDensity) flowers[idx(i, j)] = randInt(rnd, 0, 3);
   }
 
+  // Grass tufts that sway in the wind (drawing only).
+  const tufts = [];
+  for (let j = 2; j < N - 2; j++) for (let i = 2; i < N - 2; i++) {
+    if (ground[idx(i, j)] === GRASS && !obj[idx(i, j)] && rnd() < 0.35) {
+      tufts.push({ i, j, ox: (rnd() - 0.5) * 30, oy: 6 + rnd() * 18, phase: rnd() * 6 });
+    }
+  }
+
   // Objects as a list for drawing (depth = sum of the footprint centre's coordinates).
   const objects = [];
   for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
@@ -211,6 +219,10 @@ export function generateMap(seed, cfg) {
   return {
     N, ground, obj, flowers, objects, start, door, bridges, MARGIN, reachableTiles, tryBlock,
     isRock: (i, j) => inside(i, j) && obj[idx(i, j)]?.type === 'rock',
+    tufts, riverC,
+    house: { x: hx + 1.5, y: hy + 1.5 },
+    // Which side of the river a point is on (-1 north, 1 south).
+    riverSide: (x, y) => Math.sign(y - (riverC(Math.floor(x)) + 0.5)) || 1,
     groundAt: (i, j) => (inside(i, j) ? ground[idx(i, j)] : outsideGround(i, j)),
     idx, inside, walkable, nearestWalkable,
     pathTo: (from, to) => findPath(N, walkable, from, to),

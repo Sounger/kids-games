@@ -48,6 +48,7 @@ export const CONFIG = {
   },
   mobs: { enabled: true },   // stage 7
   cave: { enabled: true },   // stage 10
+  weather: { enabled: true },  // now and then light rain or evening light instead of a sunny day
   letters: {
     minFromStart: 5,     // tiles: no letter right next to where the hero starts
     spread: 5,           // tiles: letters keep at least this far apart (relaxed if the map is too small)

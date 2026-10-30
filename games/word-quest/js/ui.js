@@ -115,6 +115,14 @@ export function showBubble(decoy, missing, word) {
   b.classList.remove('hidden');
   b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
 }
+// The owl's bubble: the letter in its colour and a picture of the place.
+export function showHintBubble(ch, word, emoji) {
+  const b = $('bubble');
+  const [face, side] = LETTER_COLORS[word.indexOf(ch) % LETTER_COLORS.length];
+  b.innerHTML = `<span style="color:${face};text-shadow:3px 3px 0 ${side}">${ch}</span><span class="bubble-emoji">${emoji}</span>`;
+  b.classList.remove('hidden');
+  b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+}
 export function placeBubble(pos) {
   const b = $('bubble');
   b.style.transform = `translate(${pos.x}px, ${pos.y}px) translate(-50%, -100%)`;

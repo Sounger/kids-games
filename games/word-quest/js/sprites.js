@@ -259,6 +259,43 @@ function beeSprites() {
   ];
 }
 
+// ── Living map ─────────────────────────────────────────────────────────
+// Grass tuft in three lean positions (left, straight, right) for swaying in the wind.
+function tufts() {
+  const blades = [[1, 4], [3, 5], [5, 4], [7, 3]];
+  const dark = hex('#4e9e3c'), light = hex('#8ad468');
+  return [-1, 0, 1].map(lean => {
+    const p = new PixelBuf(10, 7);
+    for (const [bx, h] of blades) {
+      for (let k = 0; k < h; k++) p.set(bx + Math.round(lean * (k / h) * 1.6), 6 - k, k < h - 1 ? dark : light);
+    }
+    return p.toCanvas();
+  });
+}
+
+const OWL = {
+  open: [
+    '..k........k..', '..kk......kk..', '..kbkkkkkkbk..', '.kbbbbbbbbbbk.', '.kbwwwbbwwwbk.',
+    '.kbwepbbpewbk.', '.kbwwwoowwwbk.', '.kbbbboobbbbk.', '.kbbllllllbbk.', '.kbllkllkllbk.',
+    '.kbllllllllbk.', '..kbllkllkbk..', '...kbbbbbbk...', '...kokkkkok...', '..kttttttttk..',
+    '..kssssssssk..', '..kssssssssk..', '..kkkkkkkkkk..',
+  ],
+};
+OWL.blink = OWL.open.map((r, y) => (y === 4 ? '.kbbbbbbbbbbk.' : y === 5 ? '.kbkkkbbkkkbk.' : y === 6 ? '.kbbbboobbbbk.' : r));
+const OWL_PAL = { k: '#2b2140', b: '#8b5a2b', l: '#e2c08f', w: '#ffffff', e: '#f59e0b', p: '#2b2140', o: '#f97316', t: '#c08a5a', s: '#7a4a22' };
+function owlSprites() { return { open: pixelArt(OWL.open, OWL_PAL), blink: pixelArt(OWL.blink, OWL_PAL) }; }
+
+function butterflySprites() {
+  const open = ['aa...aa', 'abakaba', 'aaakaaa', '.a.k.a.'];
+  const shut = ['..a.a..', '..aka..', '...k...', '...k...'];
+  return [['#ff9f1c', '#ffd23f'], ['#4dabf7', '#ffffff'], ['#f472b6', '#ffffff'], ['#facc15', '#ffffff']]
+    .map(([a, b]) => [pixelArt(open, { a, b, k: '#2b2140' }), pixelArt(shut, { a, b, k: '#2b2140' })]);
+}
+
+function birdSprites() {
+  return [pixelArt(['k.....k', '.k...k.', '..kkk..'], { k: '#2b2140' }), pixelArt(['.......', '.kkkkk.', 'k..k..k'], { k: '#2b2140' })];
+}
+
 // ── Letters ────────────────────────────────────────────────────────────
 // 5×7 block font, drawn big with a 3D side so letters read well from the back of the class.
 const FONT = {
@@ -372,6 +409,10 @@ export function buildSprites() {
     shadowSmall: shadow(9, 4),
     glow: glow(),
     puff: puff(),
+    tuft: tufts(),
+    owl: owlSprites(),
+    butterflies: butterflySprites(),
+    bird: birdSprites(),
     raccoon: raccoonSprites(),
     slime: slimeSprites(),
     bee: beeSprites(),

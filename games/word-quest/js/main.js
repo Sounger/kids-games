@@ -1,13 +1,15 @@
-// Word Quest — stage 7: letters on the map and in chests, decoys, voice, sounds, teacher menu, mobs.
+// Word Quest — stage 8: letters, chests, decoys, voice, sounds, teacher menu, mobs, living map and the owl.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
-import { generateMap } from './map.js';
+import { generateMap, GRASS } from './map.js';
 import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble, picker, flyFromSlot } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble, picker, flyFromSlot, showHintBubble } from './ui.js';
+import { createLife } from './life.js';
+import { describePlace } from './hints.js';
 import { createMobs } from './mobs.js';
 import { letterName } from './voice.js';
 import { loadSettings, saveSettings, applySettings, activeWords } from './settings.js';
@@ -38,7 +40,12 @@ let stepT = 0;
 let state = 'title';      // title → show → play ⇄ paused / chest → celebrate → win → show …
 let chestTarget = null;   // chest the hero walks to after a click
 let quiz = null;          // the open chest window: { chest, problem, sel, busy }
-let bubbleT = -1;         // thought bubble over the hero, seconds left
+let bubbleT = -1;         // bubble over the hero or the owl, seconds left
+let bubbleOn = 'hero';
+let life = null;          // butterflies, birds, clouds, weather, blooming flowers
+let owl = null;           // the helper owl on its stump: { x, y, near, talkT }
+let owlTarget = false;    // walking to the owl after a click
+let hint = null, hintT = 0; // the letter the owl's arrow points at
 let mobs = null;          // raccoon, slimes and bee (if the teacher has them on)
 
 function startWord(index) {
@@ -50,6 +57,10 @@ function startWord(index) {
   bubbleT = -1;
   hideBubble();
   mobs = CONFIG.mobs.enabled ? createMobs(map, word) : null;
+  life = createLife(map, CONFIG.weather.enabled);
+  audio.startAmbient(life.weather);
+  owl = placeOwl();
+  owlTarget = false; hint = null; hintT = 0;
   chestTarget = null;
   quiz = null;
   mathBox.close();
@@ -168,6 +179,32 @@ function rejectDecoy(item) {
   voice.speak([`Oops! We don't need ${letterName(item.ch)}.`, `We need ${list}!`]);
   showBubble(item.ch, need, word.word);
   bubbleT = 4;
+  bubbleOn = 'hero';
+  placeBubble(renderer.worldToClient(hero.x, hero.y, 86 + hero.z));
+}
+
+// ── The owl ──
+const OWL_REACH = 1.9;
+function placeOwl() {
+  // Close to the start (letters are never this close), on grass, where it blocks no way through.
+  for (const t of map.reachableTiles().filter(t => t.d >= 3 && t.d <= 4)) {
+    if (map.ground[map.idx(t.i, t.j)] === GRASS && map.tryBlock(t.i, t.j, { type: 'owl' })) return { x: t.i + 0.5, y: t.j + 0.5, near: false, talkT: 0 };
+  }
+  return null;
+}
+// "The letter L is near the river!" — about the closest letter still needed; an arrow points the way.
+function owlTalk() {
+  owl.talkT = 2;
+  owlTarget = false;
+  sfx.hoot();
+  const needed = word.items.filter(it => !it.picked && !it.decoy).sort((a, b) => dist(a, hero) - dist(b, hero));
+  if (!needed.length) { voice.speak(['Hoo hoo! Great job!']); return; }
+  const target = needed[0], place = describePlace(map, target, hero);
+  voice.speak(['Hoo hoo!', place.speech]);
+  showHintBubble(target.ch, word.word, place.emoji);
+  bubbleT = 5; bubbleOn = 'owl';
+  placeBubble(renderer.worldToClient(owl.x, owl.y, 50));
+  hint = target; hintT = 8;
 }
 const toScreenX = p => p.x - p.y;
 
@@ -176,6 +213,8 @@ function pickUp(item, { say = true } = {}) {
   const slot = word.take(item);
   hero.hop();
   sfx.pickup();
+  if (!item.chest) { life.bloom(item.x, item.y); sfx.bloom(); }
+  if (hint === item) hintT = 0;
   if (say) voice.letter(item.ch);
   flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => {
     sfx.land();
@@ -299,6 +338,7 @@ function play(dt) {
     const chest = word.closedChests.filter(c => dist(c, hero) < CHEST_REACH).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
     if (near) pickUp(near);
     else if (chest) return openChest(chest);
+    else if (owl && dist(owl, hero) < OWL_REACH) owlTalk();
     else if (!tryRockJump() && hero.hop()) sfx.hop();
   }
   if (input.pressed('B')) {
@@ -309,6 +349,15 @@ function play(dt) {
   for (const c of input.clicks) {
     const w = renderer.screenToWorld(c.x, c.y);
     const onIt = it => dist(it, w) < 0.9 || dist({ x: it.x - 0.5, y: it.y - 0.5 }, w) < 0.6;
+    // A click on the owl: talk, walking over first if needed.
+    if (owl && onIt(owl)) {
+      if (dist(owl, hero) < OWL_REACH) { owlTalk(); continue; }
+      const goal = map.nearestWalkable(Math.floor(owl.x), Math.floor(owl.y));
+      const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
+      if (path) { hero.walkPath(path, goal); owlTarget = true; chestTarget = null; }
+      continue;
+    }
+    owlTarget = false;
     // A click on a chest: open it if the hero is next to it, else walk there first.
     const chest = word.closedChests.find(onIt);
     if (chest) {
@@ -327,10 +376,15 @@ function play(dt) {
   }
 
   const move = dpadToWorld(input.dirs, CONFIG.controls.dpad);
-  if (move.x || move.y) chestTarget = null;
+  if (move.x || move.y) { chestTarget = null; owlTarget = false; }
   hero.update(dt, move, map);
   if (chestTarget && !hero.path && dist(chestTarget, hero) < CHEST_REACH) return openChest(chestTarget);
   mobs?.update(dt, hero, mobEvents);
+  if (owl) {
+    const d = dist(owl, hero);
+    if ((owlTarget && !hero.path && d < OWL_REACH) || (!owl.near && d < OWL_REACH)) owlTalk();
+    if (d < OWL_REACH) owl.near = true; else if (d > 3) owl.near = false;
+  }
   stepT = hero.walking ? stepT + dt : 0.2;
   if (stepT >= 0.25) { stepT = 0; sfx.step(); }
 
@@ -374,11 +428,16 @@ function frame(now) {
   if (bubbleT >= 0) {
     bubbleT -= dt;
     if (bubbleT < 0 || state !== 'play') { bubbleT = -1; hideBubble(); }
+    else if (bubbleOn === 'owl' && owl) placeBubble(renderer.worldToClient(owl.x, owl.y, 50));
     else placeBubble(renderer.worldToClient(hero.x, hero.y, 86 + hero.z));
   }
   for (const c of word ? word.chests : []) if (c.shakeT >= 0) { c.shakeT += dt; if (c.shakeT > 0.45) c.shakeT = -1; }
   renderer.follow(hero, dt);
-  renderer.draw(map, hero, now / 1000, word, mobs?.list);
+  if (owl) owl.talkT = Math.max(0, owl.talkT - dt);
+  hintT = Math.max(0, hintT - dt);
+  if (hint && (hint.picked || hintT <= 0 || state !== 'play')) { hint = null; hintT = 0; }
+  life?.update(dt, renderer.view);
+  renderer.draw(map, hero, now / 1000, word, mobs?.list, { life, owl, hint });
   requestAnimationFrame(frame);
 }
 
@@ -392,5 +451,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  get mobs() { return mobs; }, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
+  get mobs() { return mobs; }, get owl() { return owl; }, get life() { return life; }, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
 };
