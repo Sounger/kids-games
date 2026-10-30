@@ -1,4 +1,4 @@
-// Word Quest — stage 2: one word per session, letters on the map, slots at the bottom, victory.
+// Word Quest — stage 3: one word per session, letters on the map, slots, victory, voice and sounds.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -7,7 +7,9 @@ import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter } from './ui.js';
+import { createVoice } from './voice.js';
+import { createAudio } from './audio.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -15,11 +17,15 @@ const canvas = $('game');
 const sprites = buildSprites();
 const renderer = createRenderer(canvas, sprites, CONFIG.view);
 const input = createInput(canvas, CONFIG.controls);
+const voice = createVoice(CONFIG.voice);
+const audio = createAudio(CONFIG.audio);
+const sfx = audio.sfx;
 
 let map, hero, word;
 let wordIndex = 0;
 let arrived = 0;          // letters that have landed in their slots
 let celebrateT = 0;
+let stepT = 0;
 let state = 'title';      // title → show → play ⇄ paused → celebrate → win → show …
 
 function startWord(index) {
@@ -31,7 +37,11 @@ function startWord(index) {
   setupWordUI(word);
   renderer.follow(hero, 0, true);
   setState('show');
+  sayWord();
 }
+
+// "Apple. A-P-P-L-E. Apple!" — the big word lights up letter by letter.
+const sayWord = () => voice.spell(word.word, highlightLetter);
 
 function setState(s) {
   state = s;
@@ -44,12 +54,18 @@ function toggleFullscreen() {
   else document.documentElement.requestFullscreen?.().catch(() => {});
 }
 
-$('playBtn').onclick = () => startWord(wordIndex);
-$('goBtn').onclick = () => setState('play');
-$('resumeBtn').onclick = () => setState('play');
-$('nextBtn').onclick = () => startWord(wordIndex + 1);
-$('sameBtn').onclick = () => startWord(wordIndex);
-$('fsBtn').onclick = toggleFullscreen;
+const button = (id, fn) => { $(id).onclick = () => { sfx.click(); fn(); }; };
+button('playBtn', () => startWord(wordIndex));
+button('goBtn', () => setState('play'));
+button('resumeBtn', () => setState('play'));
+button('nextBtn', () => startWord(wordIndex + 1));
+button('sameBtn', () => startWord(wordIndex));
+button('fsBtn', toggleFullscreen);
+$('sayBtn').onclick = sayWord;
+$('showSayBtn').onclick = sayWord;
+$('sfxBtn').onclick = () => { audio.setSfx(!audio.sfxOn); updateSfxBtn(); sfx.click(); };
+const updateSfxBtn = () => { $('sfxBtn').textContent = audio.sfxOn ? '🔔' : '🔕'; };
+updateSfxBtn();
 
 function updatePadChip() {
   const on = input.pad.connected;
@@ -57,16 +73,24 @@ function updatePadChip() {
     el.classList.toggle('on', on);
     el.querySelector('.txt').textContent = on ? 'Gamepad ready' : 'Gamepad: press any button';
   }
+  // Sound needs one click or key press on the page first (a gamepad button does not count).
+  const active = navigator.userActivation ? navigator.userActivation.hasBeenActive : audio.unlocked;
+  $('soundHint').classList.toggle('hidden', active);
 }
 
 function pickUp(item) {
   const slot = word.take(item);
   hero.hop();
+  sfx.pickup();
+  voice.letter(item.ch);
   flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => {
+    sfx.land();
     arrived++;
     if (arrived === word.slots.length) {
       celebrateT = 0;
       confetti();
+      sfx.win();
+      voice.speak(['Great job!', `${word.word.toLowerCase()}!`]);
       setState('celebrate');
     }
   });
@@ -78,9 +102,9 @@ function play(dt) {
   if (input.pressed('pause')) return setState('paused');
   if (input.pressed('A')) {
     const near = word.left.filter(it => dist(it, hero) < CONFIG.letters.reachA).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
-    if (near) pickUp(near); else hero.hop();
+    if (near) pickUp(near); else if (hero.hop()) sfx.hop();
   }
-  if (input.pressed('B')) hero.doClap();
+  if (input.pressed('B')) { hero.doClap(); sfx.clap(); }
 
   for (const c of input.clicks) {
     const w = renderer.screenToWorld(c.x, c.y);
@@ -92,6 +116,8 @@ function play(dt) {
   }
 
   hero.update(dt, dpadToWorld(input.dirs, CONFIG.controls.dpad), map);
+  stepT = hero.walking ? stepT + dt : 0.2;
+  if (stepT >= 0.25) { stepT = 0; sfx.step(); }
 
   // Walking onto a letter picks it up by itself.
   for (const it of word.left) if (dist(it, hero) < CONFIG.letters.pickupRadius) pickUp(it);
@@ -138,5 +164,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  input, renderer, startWord, CONFIG,
+  input, renderer, startWord, CONFIG, voice, audio,
 };

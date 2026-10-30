@@ -37,7 +37,7 @@ export class Hero {
   get z() { return this.hopT >= 0 ? Math.sin(Math.PI * this.hopT / HOP_TIME) * 10 : 0; }
   get clap() { return this.clapT >= 0 ? this.clapT / CLAP_TIME : -1; }
 
-  hop() { if (this.hopT < 0) this.hopT = 0; }
+  hop() { if (this.hopT >= 0) return false; this.hopT = 0; return true; }
   doClap() { this.clapT = 0; }
 
   walkPath(tiles, target) {

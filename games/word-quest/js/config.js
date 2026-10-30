@@ -30,6 +30,15 @@ export const CONFIG = {
     pickupRadius: 0.6,   // tiles: walking this close picks the letter up by itself
     reachA: 1.4,         // tiles: pressing A picks up a letter this close
   },
+  voice: {
+    rate: 0.85,          // a little slower than normal
+    pitch: 1.05,
+    volume: 1,
+  },
+  audio: {
+    master: 0.9,
+    sfx: 0.6,            // effects stay quieter than the voice
+  },
   controls: {
     // 'iso'    — each D-pad direction walks along the map grid (screen diagonals), as in the spec.
     // 'screen' — up walks up on the screen, right walks right, etc.

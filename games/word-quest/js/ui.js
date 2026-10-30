@@ -15,9 +15,19 @@ export function setupWordUI(word) {
     slots.appendChild(s);
   });
   $('showPic').textContent = word.pic;
-  $('showWord').textContent = word.word;
+  $('showWord').innerHTML = '';
+  for (const ch of word.word) {
+    const s = document.createElement('span');
+    s.textContent = ch;
+    $('showWord').appendChild(s);
+  }
   $('winPic').textContent = word.pic;
   $('winWord').textContent = word.word;
+}
+
+// Lights up letter n of the big word while the voice spells it (-1 = none).
+export function highlightLetter(n) {
+  [...$('showWord').children].forEach((s, i) => s.classList.toggle('lit', i === n));
 }
 
 // A letter flies in an arc from the map (from = page position) into its slot, then onDone().
