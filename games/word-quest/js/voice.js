@@ -49,10 +49,11 @@ export function createVoice(cfg) {
     speak,
     cancel: () => synth?.cancel(),
     // "Apple. A-P-P-L-E. Apple!" — onLetter(n) highlights letter n (-1 = none).
-    spell(word, onLetter) {
-      const w = word.toLowerCase();
-      speak([`${w}.`, ...[...word].map(letterName), `${w}!`], {
-        onPart: i => onLetter?.(i >= 1 && i <= word.length ? i - 1 : -1),
+    // intro: something said first, like the player's name.
+    spell(word, onLetter, intro = '') {
+      const w = word.toLowerCase(), first = intro ? 1 : 0;
+      speak([...(intro ? [intro] : []), `${w}.`, ...[...word].map(letterName), `${w}!`], {
+        onPart: i => onLetter?.(i >= first + 1 && i <= first + word.length ? i - first - 1 : -1),
       });
     },
     letter: ch => speak([`${letterName(ch)}!`]),

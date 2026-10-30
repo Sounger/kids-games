@@ -189,6 +189,29 @@ export const picker = {
   },
 };
 
+// ── "Who is playing?" screen ──
+export const whoScreen = {
+  // cards: [{ avatar, name, note }]
+  open(cards, onPick) {
+    const grid = $('whoGrid');
+    grid.innerHTML = '';
+    cards.forEach((c, i) => {
+      const b = document.createElement('button');
+      b.className = 'pick-card';
+      b.innerHTML = `<span class="pic">${esc(c.avatar)}</span><span class="w">${esc(c.name)}</span>${c.note ? `<span class="stars-small">${esc(c.note)}</span>` : ''}`;
+      b.onclick = () => onPick(i);
+      grid.appendChild(b);
+    });
+  },
+  select(i) { [...$('whoGrid').children].forEach((b, k) => b.classList.toggle('selected', k === i)); $('whoGrid').children[i]?.scrollIntoView({ block: 'nearest' }); },
+  columns() {
+    const cards = [...$('whoGrid').children];
+    if (cards.length < 2) return 1;
+    const n = cards.findIndex(c => c.offsetTop !== cards[0].offsetTop);
+    return n < 0 ? cards.length : n;
+  },
+};
+
 export function confetti() {
   const bits = ['⭐', '🎉', '✨', '🌟', '🎈', '💛', '🍬'];
   for (let i = 0; i < 40; i++) {

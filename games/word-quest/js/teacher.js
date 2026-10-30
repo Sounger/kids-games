@@ -3,6 +3,7 @@
 
 import { cleanSettings, defaultSettings, newId, WORD_RE } from './settings.js';
 import { picHTML, esc } from './ui.js';
+import { AVATARS, NAME_RE } from './players.js';
 
 const $ = id => document.getElementById(id);
 const HOLD_MS = 3000;
@@ -50,7 +51,7 @@ function shrinkImage(file) {
   });
 }
 
-export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, sayTest }) {
+export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, sayTest, players, onPlayers }) {
   let tab = 'words';
   let editing = null;        // index of the word being edited, or null
   let pendingPic = '';       // uploaded picture waiting for "Add"
@@ -61,6 +62,7 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
 
   $('tTabWords').onclick = () => { tab = 'words'; render(); };
   $('tTabSettings').onclick = () => { tab = 'settings'; render(); };
+  $('tTabPlayers').onclick = () => { tab = 'players'; render(); };
   $('tClose').onclick = () => onClose();
   $('tDone').onclick = () => onClose();
   $('tNewWord').onclick = () => onNewWord();
@@ -223,10 +225,38 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
     $('tSayTest').onclick = sayTest;
   }
 
+  // ── Players tab: names and pictures; children add themselves on the "Who is playing?" screen ──
+  function renderPlayers() {
+    const list = players.list;
+    const rows = list.map(p => `
+      <div class="t-row">
+        <select data-avatar="${p.id}" style="font-size:24px">${AVATARS.map(a => `<option ${a === p.avatar ? 'selected' : ''}>${a}</option>`).join('')}</select>
+        <input data-name="${p.id}" maxlength="14" value="${esc(p.name)}" style="flex:1">
+        <span class="t-note">⭐ ${p.words} &nbsp; 💎 ${p.crystals}</span>
+        <button data-delp="${p.id}" title="Delete">🗑️</button>
+      </div>`).join('') || '<p class="t-note">No players yet. Children add themselves with ➕ on the "Who is playing?" screen.</p>';
+    $('tBody').innerHTML = `
+      <div class="t-label">Players <span class="t-note">— names stay only in this browser</span></div>
+      <div class="t-list" style="max-height:none">${rows}</div>
+      <div class="t-line"><button id="tResetScores" ${list.length ? '' : 'disabled'}>↺ Reset all stars</button></div>`;
+    $('tBody').querySelectorAll('[data-avatar]').forEach(el => el.onchange = () => { players.setAvatar(el.dataset.avatar, el.value); onPlayers(); });
+    $('tBody').querySelectorAll('[data-name]').forEach(el => el.onchange = () => {
+      if (!NAME_RE.test(el.value.trim())) { alert('Please use letters only.'); render(); return; }
+      players.rename(el.dataset.name, el.value); onPlayers();
+    });
+    $('tBody').querySelectorAll('[data-delp]').forEach(b => b.onclick = () => {
+      const p = list.find(x => x.id === b.dataset.delp);
+      if (!confirm(`Delete ${p.name}?`)) return;
+      players.remove(p.id); onPlayers(); render();
+    });
+    $('tResetScores').onclick = () => { if (confirm("Set everyone's stars and crystals back to 0?")) { players.resetScores(); onPlayers(); render(); } };
+  }
+
   function render() {
     $('tTabWords').classList.toggle('on', tab === 'words');
     $('tTabSettings').classList.toggle('on', tab === 'settings');
-    if (tab === 'words') renderWords(); else renderSettings();
+    $('tTabPlayers').classList.toggle('on', tab === 'players');
+    if (tab === 'words') renderWords(); else if (tab === 'settings') renderSettings(); else renderPlayers();
   }
 
   return {

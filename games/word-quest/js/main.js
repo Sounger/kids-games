@@ -7,7 +7,7 @@ import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble, picker, flyFromSlot, showHintBubble } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter, whoScreen, mathBox, showBubble, placeBubble, hideBubble, picker, flyFromSlot, showHintBubble } from './ui.js';
 import { createLife } from './life.js';
 import { describePlace } from './hints.js';
 import { createMobs } from './mobs.js';
@@ -19,6 +19,7 @@ import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
 import { createMusic } from './music.js';
 import { createCave } from './cave.js';
+import { createPlayers, AVATARS, NAME_RE } from './players.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -34,6 +35,7 @@ const music = createMusic(audio, CONFIG.audio, CONFIG.musicFiles);
 let settings = loadSettings();
 applySettings(settings);
 const words = () => activeWords(settings);
+const players = createPlayers();
 
 let map, hero, word;
 let wordIndex = 0;
@@ -84,7 +86,7 @@ function startWord(index) {
 }
 
 // "Apple. A-P-P-L-E. Apple!" — the big word lights up letter by letter.
-const sayWord = () => voice.spell(word.word, highlightLetter);
+const sayWord = () => voice.spell(word.word, highlightLetter, players.current ? `${players.current.name}!` : '');
 
 // For changes that come a moment later (a letter landing, a chest opening): if the teacher
 // menu is open meanwhile, the game goes there when the menu closes instead of underneath it.
@@ -95,7 +97,7 @@ function setLaterState(s) {
 
 function setState(s) {
   state = s;
-  for (const id of ['title', 'show', 'pause', 'win', 'pick']) $(id).classList.toggle('hidden', id !== (s === 'paused' ? 'pause' : s));
+  for (const id of ['title', 'show', 'pause', 'win', 'pick', 'who', 'newPlayer']) $(id).classList.toggle('hidden', id !== (s === 'paused' ? 'pause' : s));
   document.body.dataset.state = s;
   // Background music follows the screen (the teacher menu keeps whatever is playing).
   const here = inCave ? 'cave' : 'overworld';
@@ -144,7 +146,82 @@ function pickInput() {
   if (input.pressed('A')) { sfx.click(); started = true; startWord(pickSel); }
 }
 
-button('playBtn', () => nextGame('first'));
+// ── Players ──
+// "Who is playing?": the players' cards, then Guest and "New player". then() runs once chosen.
+let whoThen = null, whoSel = 0;
+const whoCards = () => [
+  ...players.list.map(p => ({ avatar: p.avatar, name: p.name, note: p.words ? `⭐ ${p.words}` : '', id: p.id })),
+  { avatar: '👤', name: 'Guest', guest: true },
+  { avatar: '➕', name: 'New', add: true },
+];
+function openWho(then) {
+  whoThen = then;
+  const cards = whoCards();
+  whoScreen.open(cards, chooseWho);
+  const cur = cards.findIndex(c => c.id && c.id === players.current?.id);
+  whoSel = cur >= 0 ? cur : 0;
+  setState('who');
+  whoScreen.select(whoSel);
+}
+function chooseWho(i) {
+  const c = whoCards()[i];
+  sfx.click();
+  if (c.add) return openNewPlayer();
+  players.choose(c.guest ? null : c.id);
+  updatePlayer();
+  whoThen();
+}
+function whoInput() {
+  const n = whoCards().length, cols = whoScreen.columns();
+  const moveTo = i => { whoSel = Math.max(0, Math.min(n - 1, i)); whoScreen.select(whoSel); sfx.select(); };
+  if (input.pressed('left')) moveTo(whoSel - 1);
+  if (input.pressed('right')) moveTo(whoSel + 1);
+  if (input.pressed('up')) moveTo(whoSel - cols);
+  if (input.pressed('down')) moveTo(whoSel + cols);
+  if (input.pressed('A')) chooseWho(whoSel);
+}
+
+let npAvatar = AVATARS[0];
+function openNewPlayer() {
+  $('npName').value = '';
+  $('npError').textContent = '';
+  npAvatar = AVATARS[players.list.length % AVATARS.length];
+  $('npAvatars').innerHTML = '';
+  for (const a of AVATARS) {
+    const b = document.createElement('button');
+    b.textContent = a;
+    b.classList.toggle('on', a === npAvatar);
+    b.onclick = () => { npAvatar = a; [...$('npAvatars').children].forEach(x => x.classList.toggle('on', x === b)); sfx.select(); };
+    $('npAvatars').appendChild(b);
+  }
+  setState('newPlayer');
+  $('npName').focus();
+}
+function saveNewPlayer() {
+  const name = $('npName').value.trim();
+  if (!NAME_RE.test(name)) { $('npError').textContent = 'Type a name (letters only)'; return; }
+  sfx.click();
+  players.add(name, npAvatar);
+  updatePlayer();
+  whoThen();
+}
+$('npSave').onclick = saveNewPlayer;
+$('npCancel').onclick = () => openWho(whoThen);
+$('npName').onkeydown = e => { if (e.key === 'Enter') saveNewPlayer(); if (e.key === 'Escape') openWho(whoThen); };
+
+// The player's picture and name: top left while playing, and on the victory screen.
+function updatePlayer() {
+  const p = players.current;
+  $('playerChip').classList.toggle('on', !!p);
+  $('chipAvatar').textContent = p ? p.avatar : '';
+  $('chipName').textContent = p ? p.name : '';
+  $('winPlayer').classList.toggle('hidden', !p);
+  $('winPlayer').textContent = p ? `${p.avatar} ${p.name} — ⭐ ${p.words}` : '';
+}
+updatePlayer();
+
+button('playBtn', () => openWho(() => nextGame('first')));
+button('otherPlayerBtn', () => openWho(afterWin));
 button('goBtn', () => setState('play'));
 button('resumeBtn', () => setState('play'));
 button('nextBtn', afterWin);
@@ -154,6 +231,8 @@ button('sameBtn', () => nextGame('same'));
 let beforeTeacher = 'title';
 const teacher = createTeacherMenu({
   getSettings: () => settings,
+  players,
+  onPlayers: updatePlayer,
   onChange(s) {
     settings = s;
     if (!saveSettings(settings)) alert('Could not save. There may be too many big pictures — try smaller ones.');
@@ -259,7 +338,10 @@ function landed(slot) {
     sfx.win();
     music.stop(0.3);
     music.jingle('victory');
-    voice.speak(['Great job!', `${word.word.toLowerCase()}!`]);
+    const who = players.current;
+    voice.speak([who ? `Great job, ${who.name}!` : 'Great job!', `${word.word.toLowerCase()}!`]);
+    players.won(bonus);
+    updatePlayer();
     setLaterState('celebrate');
   }
 }
@@ -552,7 +634,9 @@ function frame(now) {
   if (input.pressed('fullscreen')) toggleFullscreen();
 
   if (state === 'title') {
-    if (input.pressed('A')) nextGame('first');
+    if (input.pressed('A')) openWho(() => nextGame('first'));
+  } else if (state === 'who') {
+    whoInput();
   } else if (state === 'pick') {
     pickInput();
   } else if (state === 'show') {
@@ -607,5 +691,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  get mobs() { return mobs; }, get cave() { return cave; }, get inCave() { return inCave; }, get hatch() { return hatch; }, enterCave, exitCave, get owl() { return owl; }, get life() { return life; }, music, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
+  players, get mobs() { return mobs; }, get cave() { return cave; }, get inCave() { return inCave; }, get hatch() { return hatch; }, enterCave, exitCave, get owl() { return owl; }, get life() { return life; }, music, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
 };

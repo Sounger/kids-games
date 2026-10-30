@@ -192,8 +192,22 @@
     .t-toggle input:checked + span::after { left: 29px; }
     kbd { border: 2px solid #2b2140; border-radius: 6px; padding: 0 5px; background: #fff; }
 
+    .player-chip {
+      position: fixed; top: 12px; left: 12px; z-index: 6; display: none; align-items: center; gap: 8px; padding: 4px 16px 4px 8px; border-radius: 999px;
+      background: rgba(20, 16, 40, 0.6); font-size: clamp(20px, 2.4vw, 34px); font-weight: 700;
+    }
+    .player-chip .av { font-size: 1.3em; }
+    body[data-state="play"] .player-chip.on, body[data-state="paused"] .player-chip.on, body[data-state="chest"] .player-chip.on, body[data-state="celebrate"] .player-chip.on { display: flex; }
+    .pick-card .stars-small { font-size: 18px; color: #7a6f8c; font-family: "Fredoka", sans-serif; font-weight: 700; }
+    .new-player { display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 28px 36px; border-radius: 28px; background: #fff8ec; color: #2b2140; border: 5px solid #2b2140; box-shadow: 0 10px 0 #2b2140; }
+    .new-player input { font: inherit; font-size: clamp(28px, 4vw, 48px); font-weight: 700; text-align: center; width: min(80vw, 520px); padding: 10px 16px; border-radius: 18px; border: 4px solid #2b2140; user-select: text; }
+    .avatars { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; max-width: 620px; }
+    .avatars button { font-size: 42px; width: 72px; height: 72px; border-radius: 18px; border: 4px solid #d8c9ad; background: #fff; cursor: pointer; }
+    .avatars button.on { border-color: #2b2140; background: #ffd23f; transform: scale(1.1); }
+    .np-error { color: #c2410c; font-weight: 700; min-height: 1.2em; }
+    .win-player { font-size: clamp(28px, 4vw, 52px); font-weight: 700; }
     .bonus-chip {
-      position: fixed; top: 12px; left: 12px; z-index: 6; padding: 6px 18px; border-radius: 999px;
+      position: fixed; top: 76px; left: 12px; z-index: 6; padding: 6px 18px; border-radius: 999px;
       background: rgba(20, 16, 40, 0.6); font-family: "Press Start 2P", monospace; font-size: clamp(22px, 2.6vw, 40px); color: #a5f3fc;
     }
     .win-bonus { font-family: "Press Start 2P", monospace; font-size: clamp(26px, 4vw, 54px); color: #a5f3fc; text-shadow: 0 5px 0 #2b2140; }
@@ -211,6 +225,7 @@
   <div class="wordbar"><span class="pic" id="barPic"></span><span class="w" id="barWord"></span><button class="say-btn" id="sayBtn" title="Say the word">🔊</button></div>
   <div class="slots" id="slots"></div>
   <div class="bubble hidden" id="bubble"></div>
+  <div class="player-chip" id="playerChip"><span class="av" id="chipAvatar"></span><span id="chipName"></span></div>
   <div class="bonus-chip hidden" id="bonusChip">💎 <span id="bonusNum">0</span></div>
 
   <div class="hud">
@@ -250,6 +265,24 @@
     </div>
   </section>
 
+  <section class="overlay hidden" id="who">
+    <div class="logo" style="font-size:clamp(26px,4vw,60px)">WHO IS PLAYING?</div>
+    <div class="pick-grid" id="whoGrid"></div>
+  </section>
+
+  <section class="overlay hidden" id="newPlayer">
+    <div class="new-player">
+      <div class="logo" style="font-size:clamp(22px,3vw,44px);text-shadow:0 4px 0 #b45309">NEW PLAYER</div>
+      <input id="npName" maxlength="14" placeholder="Name" autocomplete="off" spellcheck="false">
+      <div class="avatars" id="npAvatars"></div>
+      <div class="np-error" id="npError"></div>
+      <div class="row">
+        <button class="big-btn" id="npSave">✔ OK</button>
+        <button class="small-btn" id="npCancel">Back</button>
+      </div>
+    </div>
+  </section>
+
   <section class="overlay hidden" id="pick">
     <div class="logo" style="font-size:clamp(26px,4vw,60px)">CHOOSE A WORD</div>
     <div class="pick-grid" id="pickGrid"></div>
@@ -261,6 +294,7 @@
         <h2>⚙️ Teacher menu</h2>
         <button id="tTabWords">📚 Words</button>
         <button id="tTabSettings">🎛️ Settings</button>
+        <button id="tTabPlayers">👥 Players</button>
         <span class="sp"></span>
         <button id="tClose" title="Close">✖</button>
       </header>
@@ -281,10 +315,12 @@
     <div class="logo">GREAT JOB!</div>
     <div class="stars"><span>⭐</span><span style="animation-delay:.2s">⭐</span><span style="animation-delay:.4s">⭐</span></div>
     <div class="row"><div class="bigpic" id="winPic"></div><div class="bigword" id="winWord"></div></div>
+    <div class="win-player hidden" id="winPlayer"></div>
     <div class="win-bonus hidden" id="winBonus">+ 💎 × <span id="winBonusNum">0</span></div>
     <div class="row">
       <button class="big-btn" id="nextBtn">▶ PLAY AGAIN</button>
       <button class="small-btn" id="sameBtn" title="Play the same word again">🔁 Same word</button>
+      <button class="small-btn" id="otherPlayerBtn" title="Someone else plays now">👥 Next player</button>
     </div>
   </section>
 
