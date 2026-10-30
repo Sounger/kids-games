@@ -296,6 +296,79 @@ function birdSprites() {
   return [pixelArt(['k.....k', '.k...k.', '..kkk..'], { k: '#2b2140' }), pixelArt(['.......', '.kkkkk.', 'k..k..k'], { k: '#2b2140' })];
 }
 
+// ── Secret cave ────────────────────────────────────────────────────────
+function caveFloor(seed) {
+  const rnd = mulberry32(seed);
+  const base = hex('#3b3552'), alt = hex('#433c5e'), dark = hex('#2c273f'), light = hex('#5b5478');
+  const p = tile(() => { const r = rnd(); return r < 0.06 ? dark : r < 0.25 ? alt : base; });
+  sprinkle(p, rnd, 4, (x, y) => { p.set(x, y, light); p.set(x + 1, y, light); p.set(x, y + 1, dark); });
+  return p.toCanvas();
+}
+
+// A block of cave rock: top face plus two side faces; some have crystals growing out.
+function caveWall(crystals, seed) {
+  const rnd = mulberry32(seed);
+  const H = 28, p = new PixelBuf(TW, TH + H);
+  const top = hex('#5b5478'), topHi = hex('#6b6390'), left = hex('#3f3a58'), right = hex('#2f2a45');
+  for (let x = 0; x < TW; x++) {
+    const y0 = x < TW / 2 ? TH / 2 + Math.floor(x / 2) : TH - 1 - Math.floor((x - TW / 2) / 2);
+    for (let y = y0; y < y0 + H; y++) p.set(x, y, x < TW / 2 ? left : right);
+  }
+  for (let y = 0; y < TH; y++) {
+    const [a, b] = rowSpan(y);
+    for (let x = a; x <= b; x++) p.set(x, y, rnd() < 0.15 ? topHi : top);
+  }
+  if (crystals) {
+    const c = hex('#67e8f9'), w = hex('#ecfeff'), d = hex('#0891b2');
+    [[14, 34, 7], [22, 38, 5], [44, 36, 6]].forEach(([cx, cy, h]) => {
+      for (let k = 0; k < h; k++) { const half = Math.max(0, Math.floor((h - k) / 2.5)); for (let x = -half; x <= half; x++) p.set(cx + x, cy - k, x < 0 ? w : x > 0 ? d : c); }
+    });
+  }
+  p.outline(hex('#16131f'));
+  return { img: p.toCanvas(), ax: TW / 2, ay: H + TH / 2 };
+}
+
+const CRYSTAL = ['....k....', '...kwk...', '..kwcck..', '.kwcccdk.', 'kwcccccdk', 'kcccccddk', '.kcccddk.', '..kccdk..', '...kdk...', '....k....'];
+function crystalSprite() { return pixelArt(CRYSTAL, { k: '#164e63', w: '#ffffff', c: '#67e8f9', d: '#0891b2' }); }
+
+function mushroomSprites() {
+  const rows = ['..kkkk..', '.kccwck.', 'kcwcccck', 'kkkkkkkk', '..kssk..', '..kssk..', '..kkkk..'];
+  return [['#a78bfa', '#f5f3ff'], ['#5eead4', '#f0fdfa']].map(([c, w]) => {
+    const img = pixelArt(rows, { k: '#1e1b2e', c, w, s: '#e7e5e4' });
+    return { img, ax: img.width / 2, ay: img.height - 2 };
+  });
+}
+
+// Ladder up out of the cave, in a beam of daylight.
+function ladder() {
+  const p = new PixelBuf(40, 64);
+  for (let y = 0; y < 56; y++) {               // light shaft
+    const half = 8 + Math.floor(y / 6);
+    for (let x = 20 - half; x < 20 + half; x++) p.set(x, y, [255, 244, 200], 40 + Math.floor(y / 2));
+  }
+  p.ellipse(20, 56, 15, 6, hex('#141022'));     // the hole
+  const wood = hex('#b07a46'), dark = hex('#6b4220');
+  for (let y = 4; y < 58; y++) { p.set(13, y, wood); p.set(14, y, dark); p.set(25, y, wood); p.set(26, y, dark); }
+  for (let y = 8; y < 56; y += 7) for (let x = 15; x < 25; x++) { p.set(x, y, wood); p.set(x, y + 1, dark); }
+  return { img: p.toCanvas(), ax: 20, ay: 56 };
+}
+
+// Trapdoor in the meadow that leads down to the cave.
+function hatch() {
+  const p = new PixelBuf(44, 26);
+  const plankA = hex('#a8713c'), plankB = hex('#93602f'), gap = hex('#5e3a1a'), iron = hex('#4b5563');
+  for (let y = 0; y < 26; y++) for (let x = 0; x < 44; x++) {
+    const u = Math.abs(x + 0.5 - 22) / 22 + Math.abs(y + 0.5 - 13) / 13;
+    if (u > 1) continue;
+    const v = (x - y * 1.7 + 60) / 9, k = Math.floor(v);
+    p.set(x, y, v - k < 0.15 ? gap : k % 2 ? plankA : plankB);
+  }
+  p.ellipse(22, 13, 4, 2.5, iron);
+  p.ellipse(22, 13, 2, 1.2, hex('#2b2140'));
+  p.outline(hex('#3b2416'));
+  return { img: p.toCanvas(), ax: 22, ay: 13 };
+}
+
 // ── Letters ────────────────────────────────────────────────────────────
 // 5×7 block font, drawn big with a 3D side so letters read well from the back of the class.
 const FONT = {
@@ -318,11 +391,12 @@ export const LETTER_COLORS = [
   ['#3ddc84', '#16834a', '#b2f5cf'], ['#4dabf7', '#1c5f9e', '#bfe3ff'], ['#b57cf6', '#6a35b0', '#e3cdff'],
 ];
 const GREY = ['#cdbcbc', '#8f7272', '#ece0e0'];   // a decoy letter that bounced off
+const GOLD = ['#ffd23f', '#b8860b', '#fffbe0'];   // the golden letter in the cave
 const LETTER_PX = 5, DEPTH = 5;
 
 function letterSprite(ch, colorIdx) {
   const rows = (FONT[ch] || FONT.A).split(' ');
-  const [face, side, hi] = (colorIdx < 0 ? GREY : LETTER_COLORS[colorIdx % LETTER_COLORS.length]).map(hex);
+  const [face, side, hi] = (colorIdx === -2 ? GOLD : colorIdx < 0 ? GREY : LETTER_COLORS[colorIdx % LETTER_COLORS.length]).map(hex);
   const w = 5 * LETTER_PX + DEPTH + 2, h = 7 * LETTER_PX + DEPTH + 2;
   const p = new PixelBuf(w, h);
   const on = (x, y) => rows[y]?.[x] === '1';
@@ -410,6 +484,12 @@ export function buildSprites() {
     glow: glow(),
     puff: puff(),
     tuft: tufts(),
+    caveFloor: [51, 52].map(caveFloor),
+    caveWall: [caveWall(false, 61), caveWall(false, 62), caveWall(true, 63)],
+    crystal: crystalSprite(),
+    mushrooms: mushroomSprites(),
+    ladder: ladder(),
+    hatch: hatch(),
     owl: owlSprites(),
     butterflies: butterflySprites(),
     bird: birdSprites(),

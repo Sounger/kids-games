@@ -1,4 +1,4 @@
-// Word Quest — stage 9: letters, chests, decoys, voice, sounds, teacher menu, mobs, living map, owl, 8-bit music.
+// Word Quest — stage 10: letters, chests, decoys, voice, sounds, teacher menu, mobs, living map, owl, music, secret cave.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -18,6 +18,7 @@ import { makeProblem } from './math.js';
 import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
 import { createMusic } from './music.js';
+import { createCave } from './cave.js';
 
 const $ = id => document.getElementById(id);
 const canvas = $('game');
@@ -40,15 +41,20 @@ let arrived = 0;          // letters that have landed in their slots
 let celebrateT = 0;
 let stepT = 0;
 let state = 'title';      // title → show → play ⇄ paused / chest → celebrate → win → show …
-let chestTarget = null;   // chest the hero walks to after a click
+let walkTarget = null;    // something clicked: walk up to it, then act()
 let quiz = null;          // the open chest window: { chest, problem, sel, busy }
 let bubbleT = -1;         // bubble over the hero or the owl, seconds left
 let bubbleOn = 'hero';
 let life = null;          // butterflies, birds, clouds, weather, blooming flowers
 let owl = null;           // the helper owl on its stump: { x, y, near, talkT }
-let owlTarget = false;    // walking to the owl after a click
 let hint = null, hintT = 0; // the letter the owl's arrow points at
 let mobs = null;          // raccoon, slimes and bee (if the teacher has them on)
+let hatch = null;         // trapdoor to the secret cave: { x, y }
+let cave = null;          // the cave, made the first time the hero goes down
+let inCave = false;
+let surface = null;       // the meadow map and where the hero went down, while in the cave
+let bonus = 0;            // crystals found in the cave (shown on the victory screen)
+let toldHole = false;     // the owl mentions the hole once
 
 function startWord(index) {
   const list = words();
@@ -62,8 +68,11 @@ function startWord(index) {
   life = createLife(map, CONFIG.weather.enabled);
   audio.startAmbient(life.weather);
   owl = placeOwl();
-  owlTarget = false; hint = null; hintT = 0;
-  chestTarget = null;
+  hatch = CONFIG.cave.enabled ? placeHatch() : null;
+  cave = null; inCave = false; surface = null; bonus = 0; toldHole = false;
+  updateBonus();
+  hint = null; hintT = 0;
+  walkTarget = null;
   quiz = null;
   mathBox.close();
   arrived = 0;
@@ -81,7 +90,8 @@ function setState(s) {
   for (const id of ['title', 'show', 'pause', 'win', 'pick']) $(id).classList.toggle('hidden', id !== (s === 'paused' ? 'pause' : s));
   document.body.dataset.state = s;
   // Background music follows the screen (the teacher menu keeps whatever is playing).
-  const track = { title: 'title', pick: 'title', show: 'overworld', play: 'overworld', paused: 'overworld', chest: 'overworld' }[s];
+  const here = inCave ? 'cave' : 'overworld';
+  const track = { title: 'title', pick: 'title', show: here, play: here, paused: here, chest: here }[s];
   if (track) music.play(track);
 }
 
@@ -203,12 +213,13 @@ function placeOwl() {
 // "The letter L is near the river!" — about the closest letter still needed; an arrow points the way.
 function owlTalk() {
   owl.talkT = 2;
-  owlTarget = false;
   sfx.hoot();
   const needed = word.items.filter(it => !it.picked && !it.decoy).sort((a, b) => dist(a, hero) - dist(b, hero));
   if (!needed.length) { voice.speak(['Hoo hoo! Great job!']); return; }
   const target = needed[0], place = describePlace(map, target, hero);
-  voice.speak(['Hoo hoo!', place.speech]);
+  const hole = hatch && !toldHole ? ['I see a secret hole!'] : [];
+  toldHole = true;
+  voice.speak(['Hoo hoo!', place.speech, ...hole]);
   showHintBubble(target.ch, word.word, place.emoji);
   bubbleT = 5; bubbleOn = 'owl';
   placeBubble(renderer.worldToClient(owl.x, owl.y, 50));
@@ -216,28 +227,122 @@ function owlTalk() {
 }
 const toScreenX = p => p.x - p.y;
 
-function pickUp(item, { say = true } = {}) {
+function pickUp(item) {
   if (item.decoy) return rejectDecoy(item);
+  if (item.golden) return goldenLetter(item);
   const slot = word.take(item);
   hero.hop();
   sfx.pickup();
-  if (!item.chest) { life.bloom(item.x, item.y); sfx.bloom(); }
+  if (!item.chest && !inCave) { life.bloom(item.x, item.y); sfx.bloom(); }
   if (hint === item) hintT = 0;
-  if (say) voice.letter(item.ch);
-  flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => {
-    sfx.land();
-    word.slots[slot].filled = true;
-    arrived++;
-    if (arrived === word.slots.length) {
-      celebrateT = 0;
-      confetti();
-      sfx.win();
-      music.stop(0.3);
-      music.jingle('victory');
-      voice.speak(['Great job!', `${word.word.toLowerCase()}!`]);
-      setState('celebrate');
-    }
-  });
+  voice.letter(item.ch);
+  flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => landed(slot));
+}
+
+// A letter has landed in its slot; the last one wins the game.
+function landed(slot) {
+  sfx.land();
+  word.slots[slot].filled = true;
+  arrived++;
+  if (arrived === word.slots.length) {
+    celebrateT = 0;
+    confetti();
+    sfx.win();
+    music.stop(0.3);
+    music.jingle('victory');
+    voice.speak(['Great job!', `${word.word.toLowerCase()}!`]);
+    setState('celebrate');
+  }
+}
+
+// ── The secret cave ──
+const HATCH_REACH = 1.6;
+function placeHatch() {
+  const spots = map.reachableTiles().filter(t => t.d >= 8 && map.ground[map.idx(t.i, t.j)] === GRASS);
+  for (let k = 0; k < 40 && spots.length; k++) {
+    const t = spots.splice(Math.floor(Math.random() * spots.length), 1)[0];
+    if (!map.tryBlock(t.i, t.j, { type: 'hatch' })) continue;
+    map.objects.push({ type: 'hatch', x: t.i + 0.5, y: t.j + 0.5, depth: t.i + t.j });
+    return { x: t.i + 0.5, y: t.j + 0.5 };
+  }
+  return null;
+}
+
+function enterCave() {
+  if (!cave) cave = createCave(Math.floor(Math.random() * 1e9), word);
+  surface = { map, x: hero.x, y: hero.y };
+  map = cave.map;
+  hero.stopPath(); hero.knock = null; hero.jump = null;
+  hero.x = cave.start.x; hero.y = cave.start.y;
+  inCave = true;
+  bubbleT = -1; hideBubble(); hint = null;
+  renderer.follow(hero, 0, true);
+  audio.stopAmbient();
+  sfx.jump();
+  music.play('cave');
+  updateBonus();
+  if (!cave.visited) voice.speak(['Wow! A secret cave!']);
+  cave.visited = true;
+}
+
+function exitCave() {
+  map = surface.map;
+  hero.stopPath();
+  hero.x = surface.x; hero.y = surface.y;
+  inCave = false;
+  renderer.follow(hero, 0, true);
+  audio.startAmbient(life.weather);
+  sfx.jump();
+  music.play('overworld');
+  updateBonus();
+}
+
+// The golden letter puts itself in an empty slot; the same letter up on the meadow is no longer needed.
+function goldenLetter(item) {
+  item.picked = true;
+  hero.hop();
+  const missing = word.missing;
+  const ch = missing.includes(item.ch) ? item.ch : missing[0];
+  if (!ch) return addBonus(3);
+  const others = word.items.filter(it => !it.picked && !it.decoy && it.ch === ch);
+  const twin = others.find(it => !it.chest) || others[0];
+  if (twin.chest) twin.chest.open = true;
+  const slot = word.take(twin);
+  sfx.chestOpen();
+  music.jingle('chest');
+  voice.speak(['A golden letter!', `${letterName(ch)}!`]);
+  flyLetter(ch, twin.color, renderer.worldToClient(item.x, item.y, 24), slot, () => landed(slot));
+}
+
+function addBonus(n) {
+  bonus += n;
+  sfx.pickup();
+  if (n > 1) voice.speak([`${n} crystals!`]);
+  updateBonus();
+}
+
+function updateBonus() {
+  $('bonusChip').classList.toggle('hidden', !inCave && !bonus);
+  $('bonusNum').textContent = bonus;
+  $('winBonus').classList.toggle('hidden', !bonus);
+  $('winBonusNum').textContent = bonus;
+}
+
+// What can be picked up, opened or talked to where the hero is now.
+function scene() {
+  if (inCave) {
+    return {
+      left: cave.golden && !cave.golden.picked ? [cave.golden] : [],
+      chests: cave.chest ? [cave.chest] : [],
+      closedChests: cave.chest && !cave.chest.open ? [cave.chest] : [],
+      rejected: [],
+      things: [{ obj: cave.ladder, reach: HATCH_REACH, act: exitCave }],
+    };
+  }
+  return {
+    left: word.left, chests: word.chests, closedChests: word.closedChests, rejected: word.rejected,
+    things: [owl && { obj: owl, reach: OWL_REACH, act: owlTalk }, hatch && { obj: hatch, reach: HATCH_REACH, act: enterCave }].filter(Boolean),
+  };
 }
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -246,7 +351,7 @@ const CHEST_REACH = 1.6;
 // ── Chests ──
 function openChest(chest) {
   hero.stopPath();
-  chestTarget = null;
+  walkTarget = null;
   const problem = makeProblem(CONFIG.math);
   quiz = { chest, problem, sel: problem.options[1], busy: false };
   mathBox.open(problem, answer);
@@ -278,7 +383,8 @@ function answer(n) {
       quiz = null;
       chest.open = true;
       setState('play');
-      pickUp(chest.item);
+      if (chest.bonus) addBonus(chest.bonus);
+      else pickUp(chest.item);
     }, 900);
   } else {
     // Never stuck: the wrong answer disappears, so at worst one button is left.
@@ -342,65 +448,72 @@ function tryRockJump() {
   return true;
 }
 
+// Walk up to something that was clicked; act() once close enough.
+function goTo(obj, reach, act) {
+  if (dist(obj, hero) < reach) { walkTarget = null; return act(); }
+  const goal = map.nearestWalkable(Math.floor(obj.x), Math.floor(obj.y));
+  const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
+  if (path) { hero.walkPath(path, goal); walkTarget = { obj, reach, act }; }
+}
+
 function play(dt) {
+  const here = scene();
+  const nearest = (list, r) => list.filter(it => dist(it, hero) < r).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
   if (input.pressed('pause')) return setState('paused');
   if (input.pressed('A') && !hero.jump) {
-    const near = word.left.filter(it => dist(it, hero) < CONFIG.letters.reachA).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
-    const chest = word.closedChests.filter(c => dist(c, hero) < CHEST_REACH).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
-    if (near) pickUp(near);
+    const letter = nearest(here.left, CONFIG.letters.reachA);
+    const chest = nearest(here.closedChests, CHEST_REACH);
+    const thing = here.things.find(t => dist(t.obj, hero) < t.reach);
+    if (letter) pickUp(letter);
     else if (chest) return openChest(chest);
-    else if (owl && dist(owl, hero) < OWL_REACH) owlTalk();
+    else if (thing) return thing.act();
     else if (!tryRockJump() && hero.hop()) sfx.hop();
   }
   if (input.pressed('B')) {
     hero.doClap(); sfx.clap();
-    if (mobs?.clap(hero)) setTimeout(() => sfx.squeak(), 150);
+    if (!inCave && mobs?.clap(hero)) setTimeout(() => sfx.squeak(), 150);
   }
 
   for (const c of input.clicks) {
     const w = renderer.screenToWorld(c.x, c.y);
     const onIt = it => dist(it, w) < 0.9 || dist({ x: it.x - 0.5, y: it.y - 0.5 }, w) < 0.6;
-    // A click on the owl: talk, walking over first if needed.
-    if (owl && onIt(owl)) {
-      if (dist(owl, hero) < OWL_REACH) { owlTalk(); continue; }
-      const goal = map.nearestWalkable(Math.floor(owl.x), Math.floor(owl.y));
-      const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
-      if (path) { hero.walkPath(path, goal); owlTarget = true; chestTarget = null; }
-      continue;
-    }
-    owlTarget = false;
-    // A click on a chest: open it if the hero is next to it, else walk there first.
-    const chest = word.closedChests.find(onIt);
-    if (chest) {
-      if (dist(chest, hero) < CHEST_REACH) return openChest(chest);
-      const goal = map.nearestWalkable(chest.i, chest.j);
-      const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
-      if (path) { hero.walkPath(path, goal); chestTarget = chest; }
-      continue;
-    }
-    chestTarget = null;
+    walkTarget = null;
+    const thing = here.things.find(t => onIt(t.obj));
+    if (thing) { goTo(thing.obj, thing.reach, thing.act); continue; }
+    const chest = here.closedChests.find(onIt);
+    if (chest) { goTo(chest, CHEST_REACH, () => openChest(chest)); continue; }
     // A click on (or just above) a letter walks to that letter.
-    const letter = word.left.find(onIt);
+    const letter = here.left.find(onIt);
     const goal = letter ? { i: Math.floor(letter.x), j: Math.floor(letter.y) } : map.nearestWalkable(Math.floor(w.x), Math.floor(w.y));
     const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
     if (path) hero.walkPath(path, goal);
   }
+  if (state !== 'play') return;
 
   const move = dpadToWorld(input.dirs, CONFIG.controls.dpad);
-  if (move.x || move.y) { chestTarget = null; owlTarget = false; }
+  if (move.x || move.y) walkTarget = null;
   hero.update(dt, move, map);
-  if (chestTarget && !hero.path && dist(chestTarget, hero) < CHEST_REACH) return openChest(chestTarget);
-  mobs?.update(dt, hero, mobEvents);
-  if (owl) {
-    const d = dist(owl, hero);
-    if ((owlTarget && !hero.path && d < OWL_REACH) || (!owl.near && d < OWL_REACH)) owlTalk();
-    if (d < OWL_REACH) owl.near = true; else if (d > 3) owl.near = false;
+  if (walkTarget && !hero.path && dist(walkTarget.obj, hero) < walkTarget.reach) {
+    const { act } = walkTarget;
+    walkTarget = null;
+    return act();
   }
   stepT = hero.walking ? stepT + dt : 0.2;
   if (stepT >= 0.25) { stepT = 0; sfx.step(); }
 
+  if (inCave) {
+    for (const c of cave.crystals) if (!c.got && dist(c, hero) < 0.6) { c.got = true; addBonus(1); }
+  } else {
+    mobs?.update(dt, hero, mobEvents);
+    if (owl) {
+      const d = dist(owl, hero);
+      if (!owl.near && d < OWL_REACH) owlTalk();
+      if (d < OWL_REACH) owl.near = true; else if (d > 3) owl.near = false;
+    }
+  }
+
   // Walking onto a letter picks it up by itself.
-  for (const it of word.left) if (dist(it, hero) < CONFIG.letters.pickupRadius) pickUp(it);
+  for (const it of here.left) if (dist(it, hero) < CONFIG.letters.pickupRadius) pickUp(it);
 }
 
 let last = performance.now();
@@ -436,13 +549,14 @@ function frame(now) {
   }
 
   for (const it of word ? word.rejected : []) { it.rejectT += dt; if (it.rejectT > 1.2) it.rejectT = -2; }
+  if (inCave) cave.update(dt);
   if (bubbleT >= 0) {
     bubbleT -= dt;
     if (bubbleT < 0 || state !== 'play') { bubbleT = -1; hideBubble(); }
     else if (bubbleOn === 'owl' && owl) placeBubble(renderer.worldToClient(owl.x, owl.y, 50));
     else placeBubble(renderer.worldToClient(hero.x, hero.y, 86 + hero.z));
   }
-  for (const c of word ? word.chests : []) if (c.shakeT >= 0) { c.shakeT += dt; if (c.shakeT > 0.45) c.shakeT = -1; }
+  for (const c of word ? [...word.chests, ...(cave?.chest ? [cave.chest] : [])] : []) if (c.shakeT >= 0) { c.shakeT += dt; if (c.shakeT > 0.45) c.shakeT = -1; }
   renderer.follow(hero, dt);
   if (owl) owl.talkT = Math.max(0, owl.talkT - dt);
   hintT = Math.max(0, hintT - dt);
@@ -450,7 +564,8 @@ function frame(now) {
   life?.update(dt, renderer.view);
   music.duck(window.speechSynthesis?.speaking);
   music.setVolume(CONFIG.audio.music);
-  renderer.draw(map, hero, now / 1000, word, mobs?.list, { life, owl, hint });
+  if (inCave) renderer.draw(map, hero, now / 1000, scene(), [], { cave });
+  else renderer.draw(map, hero, now / 1000, word, mobs?.list, { life, owl, hint });
   requestAnimationFrame(frame);
 }
 
@@ -464,5 +579,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  get mobs() { return mobs; }, get owl() { return owl; }, get life() { return life; }, music, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
+  get mobs() { return mobs; }, get cave() { return cave; }, get inCave() { return inCave; }, get hatch() { return hatch; }, enterCave, exitCave, get owl() { return owl; }, get life() { return life; }, music, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
 };

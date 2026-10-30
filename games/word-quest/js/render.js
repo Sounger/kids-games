@@ -2,13 +2,14 @@
 // onto the screen canvas, so pixels stay sharp on the projector.
 
 import { TW, TH, toScreen, toWorld } from './iso.js';
-import { GRASS, PATH, SAND, WATER, BRIDGE } from './map.js';
+import { GRASS, PATH, SAND, WATER, BRIDGE, CAVE } from './map.js';
 import { makeCanvas } from './util.js';
 import { getLetterSprite } from './sprites.js';
 
 export function createRenderer(canvas, sprites, viewCfg) {
   const screen = canvas.getContext('2d');
   const low = makeCanvas(viewCfg.baseWidth, viewCfg.baseHeight);
+  const dark = makeCanvas(viewCfg.baseWidth, viewCfg.baseHeight);   // the cave's darkness, with holes of light
   const ctx = low.ctx;
   const view = { scale: 1, w: viewCfg.baseWidth, h: viewCfg.baseHeight, dpr: 1 };
   const cam = { x: 0, y: 0 };
@@ -21,6 +22,7 @@ export function createRenderer(canvas, sprites, viewCfg) {
     view.w = Math.ceil(canvas.width / view.scale);
     view.h = Math.ceil(canvas.height / view.scale);
     low.c.width = view.w; low.c.height = view.h;
+    dark.c.width = view.w; dark.c.height = view.h;
     ctx.imageSmoothingEnabled = false;
   }
   resize();
@@ -52,10 +54,10 @@ export function createRenderer(canvas, sprites, viewCfg) {
 
   // extra: { life, owl, hint } — living-map details, the owl, and the owl's arrow target.
   function draw(map, hero, time, word, mobs = [], extra = {}) {
-    const { life, owl, hint } = extra;
+    const { life, owl, hint, cave } = extra;
     const blooms = new Map((life?.blooms || []).filter(b => b.t < 0.6).map(b => [map.idx(b.i, b.j), b.t / 0.6]));
     const o = offset();
-    ctx.fillStyle = '#245a32';
+    ctx.fillStyle = map.bg || '#245a32';
     ctx.fillRect(0, 0, view.w, view.h);
 
     // 1. Ground
@@ -73,6 +75,8 @@ export function createRenderer(canvas, sprites, viewCfg) {
         else if (g === SAND) img = sprites.sand[hsh % sprites.sand.length];
         else if (g === WATER) img = sprites.water[waterFrame];
         else if (g === BRIDGE) img = sprites.bridge;
+        else if (g === CAVE) img = sprites.caveFloor[hsh % sprites.caveFloor.length];
+        if (!img) continue;
         ctx.drawImage(img, x, y);
         if (inMap && map.flowers[k] >= 0) {
           const grow = blooms.get(k);
@@ -153,6 +157,11 @@ export function createRenderer(canvas, sprites, viewCfg) {
       ctx.globalAlpha = 1;
       items.push({ depth: m.x + m.y + (m.type === 'bee' ? 1 : 0), mob: m, sx, sy });
     }
+    for (const c of cave ? cave.crystals : []) {
+      if (c.got) continue;
+      const s = toScreen(c.x, c.y);
+      items.push({ depth: c.x + c.y, crystal: c, sx: Math.round(s.x + o.x), sy: Math.round(s.y + o.y) });
+    }
     ctx.drawImage(sprites.shadowSmall, Math.round(heroPt.x) - 10, Math.round(heroPt.y) - 4);
     items.push({ depth: hero.depth, hero: true });
     if (owl) {
@@ -171,6 +180,11 @@ export function createRenderer(canvas, sprites, viewCfg) {
         continue;
       }
       if (it.mob) { drawMob(it.mob, it.sx, it.sy, time); continue; }
+      if (it.crystal) {
+        const img = sprites.crystal, bob = Math.round(Math.sin(it.crystal.phase * 3) * 3);
+        ctx.drawImage(img, it.sx - img.width / 2, it.sy - img.height - 6 + bob);
+        continue;
+      }
       if (it.owl) {
         const img = (time % 3.2) < 0.15 ? sprites.owl.blink : sprites.owl.open;
         const tilt = it.owl.talkT > 0 ? Math.round(Math.sin(time * 10) * 2) : 0;
@@ -184,7 +198,9 @@ export function createRenderer(canvas, sprites, viewCfg) {
         ctx.drawImage(img, it.sx - Math.floor(img.width / 2), it.sy - img.height - 4 - bob);
         continue;
       }
-      const spr = it.ob.type === 'tree' ? sprites.trees[it.ob.variant] : it.ob.type === 'rock' ? sprites.rock : sprites.house;
+      const t = it.ob.type;
+      const spr = t === 'tree' ? sprites.trees[it.ob.variant] : t === 'rock' ? sprites.rock : t === 'wall' ? sprites.caveWall[it.ob.variant]
+        : t === 'ladder' ? sprites.ladder : t === 'mushroom' ? sprites.mushrooms[it.ob.variant] : t === 'hatch' ? sprites.hatch : sprites.house;
       const x = it.sx - spr.ax, y = it.sy - spr.ay;
       // See-through when the hero walks behind it.
       const behind = it.depth > hero.depth &&
@@ -194,6 +210,7 @@ export function createRenderer(canvas, sprites, viewCfg) {
       ctx.globalAlpha = 1;
     }
 
+    if (cave) drawDark(cave, hero, o, time);
     if (life) drawLife(life, o, time);
     if (hint) drawArrow(heroPt, hint, o, time, hero.z);
 
@@ -263,6 +280,37 @@ export function createRenderer(canvas, sprites, viewCfg) {
       ctx.fillStyle = g;
       ctx.fillRect(0, 0, view.w, view.h);
     }
+  }
+
+  // The cave is dark: only a circle of light around the hero, plus whatever glows.
+  function drawDark(cave, hero, o, time) {
+    const d = dark.ctx;
+    d.globalCompositeOperation = 'source-over';
+    d.clearRect(0, 0, view.w, view.h);
+    d.fillStyle = 'rgba(6, 5, 18, 0.88)';
+    d.fillRect(0, 0, view.w, view.h);
+    d.globalCompositeOperation = 'destination-out';
+    for (const l of cave.lights(hero)) {
+      const s = toScreen(l.x, l.y);
+      const x = s.x + o.x, y = s.y + o.y - l.lift, r = l.r * (1 + Math.sin(time * 3 + l.x) * 0.04);
+      const g = d.createRadialGradient(x, y, 0, x, y, r);
+      g.addColorStop(0, 'rgba(0,0,0,1)'); g.addColorStop(0.55, 'rgba(0,0,0,0.85)'); g.addColorStop(1, 'rgba(0,0,0,0)');
+      d.fillStyle = g;
+      d.beginPath(); d.arc(x, y, r, 0, Math.PI * 2); d.fill();
+    }
+    ctx.drawImage(dark.c, 0, 0);
+    // Fireflies glow on top of the dark.
+    ctx.globalCompositeOperation = 'lighter';
+    for (const f of cave.fireflies) {
+      const s = toScreen(f.x, f.y);
+      const a = 0.5 + Math.sin(f.phase * 4) * 0.4;
+      ctx.fillStyle = `rgba(220, 255, 140, ${a})`;
+      const x = Math.round(s.x + o.x), y = Math.round(s.y + o.y - f.z);
+      ctx.fillRect(x, y, 2, 2);
+      ctx.fillStyle = `rgba(180, 255, 120, ${a * 0.35})`;
+      ctx.fillRect(x - 1, y - 1, 4, 4);
+    }
+    ctx.globalCompositeOperation = 'source-over';
   }
 
   // The owl's arrow: hovers by the hero and points towards the letter.

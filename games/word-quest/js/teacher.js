@@ -202,7 +202,7 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
       ${row('How many decoys', select('decoys.count', [1, 2, 3, 4, 5, 6].map(n => [n, n]), s.decoys.count))}
       ${row('Raccoon, slimes and bee', toggle('mobs.enabled', s.mobs.enabled))}
       ${row('Weather', toggle('weather.enabled', s.weather.enabled), 'sometimes light rain or evening light')}
-      ${row('Secret cave', toggle('cave.enabled', s.cave.enabled), 'stage 10')}
+      ${row('Secret cave', toggle('cave.enabled', s.cave.enabled), 'a trapdoor to a dark bonus cave')}
       <div class="t-label">Sound</div>
       ${row('Voice volume', range('voice.volume', 0, 1, 0.1, s.voice.volume) + '<button id="tSayTest">🔊 Test</button>')}
       ${row('Voice speed', range('voice.rate', 0.6, 1.2, 0.05, s.voice.rate), 'slow … fast')}

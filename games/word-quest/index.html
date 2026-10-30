@@ -192,6 +192,12 @@
     .t-toggle input:checked + span::after { left: 29px; }
     kbd { border: 2px solid #2b2140; border-radius: 6px; padding: 0 5px; background: #fff; }
 
+    .bonus-chip {
+      position: fixed; top: 12px; left: 12px; z-index: 6; padding: 6px 18px; border-radius: 999px;
+      background: rgba(20, 16, 40, 0.6); font-family: "Press Start 2P", monospace; font-size: clamp(22px, 2.6vw, 40px); color: #a5f3fc;
+    }
+    .win-bonus { font-family: "Press Start 2P", monospace; font-size: clamp(26px, 4vw, 54px); color: #a5f3fc; text-shadow: 0 5px 0 #2b2140; }
+
     .confetti { position: fixed; top: -50px; font-size: clamp(30px, 4vw, 54px); pointer-events: none; z-index: 40; animation: fall linear forwards; }
 
     @keyframes blink { 50% { opacity: 0.35; } }
@@ -205,6 +211,7 @@
   <div class="wordbar"><span class="pic" id="barPic"></span><span class="w" id="barWord"></span><button class="say-btn" id="sayBtn" title="Say the word">🔊</button></div>
   <div class="slots" id="slots"></div>
   <div class="bubble hidden" id="bubble"></div>
+  <div class="bonus-chip hidden" id="bonusChip">💎 <span id="bonusNum">0</span></div>
 
   <div class="hud">
     <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>
@@ -274,6 +281,7 @@
     <div class="logo">GREAT JOB!</div>
     <div class="stars"><span>⭐</span><span style="animation-delay:.2s">⭐</span><span style="animation-delay:.4s">⭐</span></div>
     <div class="row"><div class="bigpic" id="winPic"></div><div class="bigword" id="winWord"></div></div>
+    <div class="win-bonus hidden" id="winBonus">+ 💎 × <span id="winBonusNum">0</span></div>
     <div class="row">
       <button class="big-btn" id="nextBtn">▶ PLAY AGAIN</button>
       <button class="small-btn" id="sameBtn" title="Play the same word again">🔁 Same word</button>

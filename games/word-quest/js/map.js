@@ -3,7 +3,7 @@
 
 import { mulberry32, randInt, shuffle } from './util.js';
 
-export const GRASS = 0, PATH = 1, SAND = 2, WATER = 3, BRIDGE = 4;
+export const GRASS = 0, PATH = 1, SAND = 2, WATER = 3, BRIDGE = 4, CAVE = 5, VOID = 6;
 
 // A* on the tile grid. diag: allow diagonal steps (never cutting a blocked corner).
 export function findPath(N, passable, from, to, { diag = true, cost = () => 1 } = {}) {
