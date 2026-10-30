@@ -54,7 +54,7 @@ export function createRenderer(canvas, sprites, viewCfg) {
 
   // extra: { life, owl, hint } — living-map details, the owl, and the owl's arrow target.
   function draw(map, hero, time, word, mobs = [], extra = {}) {
-    const { life, owl, hint, cave } = extra;
+    const { life, owl, hint, cave, prompt } = extra;
     const blooms = new Map((life?.blooms || []).filter(b => b.t < 0.6).map(b => [map.idx(b.i, b.j), b.t / 0.6]));
     const o = offset();
     ctx.fillStyle = map.bg || '#245a32';
@@ -213,6 +213,11 @@ export function createRenderer(canvas, sprites, viewCfg) {
     if (cave) drawDark(cave, hero, o, time);
     if (life) drawLife(life, o, time);
     if (hint) drawArrow(heroPt, hint, o, time, hero.z);
+    if (prompt) {
+      const s = toScreen(prompt.x, prompt.y), img = sprites.aButton;
+      const y = Math.round(s.y + o.y - prompt.lift - Math.abs(Math.sin(time * 4)) * 5);
+      ctx.drawImage(img, Math.round(s.x + o.x - img.width / 2), y - img.height);
+    }
 
     // 5. Scale up to the screen
     screen.imageSmoothingEnabled = false;

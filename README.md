@@ -8,6 +8,7 @@ Educational web games for K3 kids. One link, all games, any device.
 | Pixel Math Quiz | Math |
 | Math Adventure | Math |
 | Missing Number | Math |
+| Word Quest | Letters + Math |
 | Word Wheel | Letters |
 | Super Typer | Letters |
 | Magic Forest | Board game |

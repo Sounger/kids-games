@@ -353,7 +353,8 @@ function openChest(chest) {
   hero.stopPath();
   walkTarget = null;
   const problem = makeProblem(CONFIG.math);
-  quiz = { chest, problem, sel: problem.options[1], busy: false };
+  // Nothing is selected at first, so no button looks like the answer; the D-pad selects one.
+  quiz = { chest, problem, sel: null, busy: false };
   mathBox.open(problem, answer);
   mathBox.select(quiz.sel);
   setState('chest');
@@ -364,7 +365,7 @@ function openChest(chest) {
 function moveSelection(step) {
   const values = mathBox.buttons().map(b => +b.dataset.value);
   const k = values.indexOf(quiz.sel);
-  quiz.sel = values[Math.max(0, Math.min(values.length - 1, k + step))];
+  quiz.sel = k < 0 ? values[Math.floor((values.length - 1) / 2)] : values[Math.max(0, Math.min(values.length - 1, k + step))];
   mathBox.select(quiz.sel);
   sfx.select();
 }
@@ -392,8 +393,8 @@ function answer(n) {
     chest.shakeT = 0;
     sfx.shake();
     voice.speak(['Try again!']);
-    quiz.sel = +mathBox.buttons()[0].dataset.value;
-    mathBox.select(quiz.sel);
+    quiz.sel = null;
+    mathBox.select(null);
   }
 }
 
@@ -407,7 +408,7 @@ function closeChest() {
 function quizInput() {
   if (input.pressed('left') || input.pressed('up')) moveSelection(-1);
   if (input.pressed('right') || input.pressed('down')) moveSelection(1);
-  if (input.pressed('A')) answer(quiz.sel);
+  if (input.pressed('A')) { if (quiz.sel === null) moveSelection(0); else answer(quiz.sel); }
   else if (input.pressed('B') || input.pressed('pause')) closeChest();
 }
 
@@ -446,6 +447,18 @@ function tryRockJump() {
   hero.jumpTo(li + 0.5, lj + 0.5);
   sfx.jump();
   return true;
+}
+
+// The chest, owl, trapdoor or ladder that A would use right now (gets a bouncing "A" over it).
+function promptTarget() {
+  const here = scene();
+  const lift = { chest: 40, owl: 44, hatch: 18, ladder: 64 };
+  const chest = here.closedChests.find(c => dist(c, hero) < CHEST_REACH);
+  if (chest) return { x: chest.x, y: chest.y, lift: lift.chest };
+  const thing = here.things.find(t => dist(t.obj, hero) < t.reach);
+  if (!thing) return null;
+  const kind = thing.obj === owl ? 'owl' : thing.obj === hatch ? 'hatch' : 'ladder';
+  return { x: thing.obj.x, y: thing.obj.y, lift: lift[kind] };
 }
 
 // Walk up to something that was clicked; act() once close enough.
@@ -564,8 +577,9 @@ function frame(now) {
   life?.update(dt, renderer.view);
   music.duck(window.speechSynthesis?.speaking);
   music.setVolume(CONFIG.audio.music);
-  if (inCave) renderer.draw(map, hero, now / 1000, scene(), [], { cave });
-  else renderer.draw(map, hero, now / 1000, word, mobs?.list, { life, owl, hint });
+  const prompt = state === 'play' && word ? promptTarget() : null;
+  if (inCave) renderer.draw(map, hero, now / 1000, scene(), [], { cave, prompt });
+  else renderer.draw(map, hero, now / 1000, word, mobs?.list, { life, owl, hint, prompt });
   requestAnimationFrame(frame);
 }
 

@@ -454,6 +454,16 @@ function puff() {
   return p.toCanvas();
 }
 
+// A little red "A" button: shown over things the hero can use, so children know to press A.
+function aButton() {
+  const p = new PixelBuf(22, 22);
+  p.circle(11, 11, 10, hex('#b3262b'));
+  p.circle(11, 10, 9, hex('#e94b5b'));
+  FONT.A.split(' ').forEach((row, y) => [...row].forEach((c, x) => { if (c === '1') p.rect(6 + x * 2, 4 + y * 2, 2, 2, hex('#ffffff')); }));
+  p.outline(hex('#2b2140'));
+  return p.toCanvas();
+}
+
 function glow() {
   const p = new PixelBuf(40, 16);
   p.ellipse(20, 8, 19, 7, [255, 240, 150], 70);
@@ -482,6 +492,7 @@ export function buildSprites() {
     shadowBig: shadow(16, 6),
     shadowSmall: shadow(9, 4),
     glow: glow(),
+    aButton: aButton(),
     puff: puff(),
     tuft: tufts(),
     caveFloor: [51, 52].map(caveFloor),

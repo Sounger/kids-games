@@ -18,11 +18,13 @@ Talk to Sam in Russian; keep code, comments and in-game text in English.
   `bash scripts/build.sh <slug>` builds just one.
 - `.github/workflows/pages.yml` — every push to `main` rebuilds and publishes the site.
 
-## Word Quest (in progress)
+## Word Quest
 - Big isometric RPG in `games/word-quest/` (plain ES modules + Canvas, no build step).
-  The spec is `docs/word-quest-spec.md`; it is built stage by stage (section 13) and Sam
-  confirms each stage before the next. Not in the `hub/` menu until it is finished —
-  Sam tests it at `…/kids-games/word-quest/`.
+  The spec is `docs/word-quest-spec.md`; all 11 stages of section 13 are built.
+- One module per part (`js/`): map, hero, input, word/ui, math, mobs, life, cave, voice,
+  audio, music + tracks, settings + teacher menu. All defaults live in `js/config.js`;
+  the teacher's changes are saved in localStorage (`wq-settings`) on top of them.
+- `window.wq` in the browser console exposes the game state for quick checks.
 
 ## Game rules
 - Audience is 4–6 year olds: huge tap targets (≥ 64px), very few words, clear pictures/emoji,
