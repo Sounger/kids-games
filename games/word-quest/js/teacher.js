@@ -132,7 +132,7 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
       <div class="t-chips">${chips}<button class="t-chip add" id="tAddSet">＋ New set</button></div>
       <div class="t-line">
         <label>Set name <input id="tSetName" maxlength="30" value="${esc(cur.name)}"></label>
-        <button id="tDelSet" ${s.sets.length < 2 ? 'disabled' : ''}>🗑️ Delete this set</button>
+        <button id="tDelSet">🗑️ Delete this set</button>
       </div>
       <div class="t-list">${rows}</div>
       <div class="t-form">
@@ -164,6 +164,8 @@ export function createTeacherMenu({ getSettings, onChange, onNewWord, onClose, s
     $('tDelSet').onclick = async () => {
       if (!await ask(`Delete the set "${cur.name}" and its ${cur.words.length} words?`, '🗑️ Delete')) return;
       S().sets = S().sets.filter(x => x.id !== cur.id);
+      // The last set can go too: an empty one takes its place, ready for new words.
+      if (!S().sets.length) S().sets.push({ id: newId(), name: 'My words', words: [] });
       S().activeSet = S().sets[0].id;
       editing = null; change();
     };
