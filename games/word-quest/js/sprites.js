@@ -239,11 +239,12 @@ export const LETTER_COLORS = [
   ['#ff5a5f', '#b3262b', '#ffb3b5'], ['#ff9f1c', '#b35f00', '#ffd59a'], ['#ffd23f', '#b38a00', '#fff1a8'],
   ['#3ddc84', '#16834a', '#b2f5cf'], ['#4dabf7', '#1c5f9e', '#bfe3ff'], ['#b57cf6', '#6a35b0', '#e3cdff'],
 ];
+const GREY = ['#cdbcbc', '#8f7272', '#ece0e0'];   // a decoy letter that bounced off
 const LETTER_PX = 5, DEPTH = 5;
 
 function letterSprite(ch, colorIdx) {
   const rows = (FONT[ch] || FONT.A).split(' ');
-  const [face, side, hi] = LETTER_COLORS[colorIdx % LETTER_COLORS.length].map(hex);
+  const [face, side, hi] = (colorIdx < 0 ? GREY : LETTER_COLORS[colorIdx % LETTER_COLORS.length]).map(hex);
   const w = 5 * LETTER_PX + DEPTH + 2, h = 7 * LETTER_PX + DEPTH + 2;
   const p = new PixelBuf(w, h);
   const on = (x, y) => rows[y]?.[x] === '1';
@@ -291,6 +292,16 @@ function chest(open) {
   return { img: p.toCanvas(), ax: 20, ay: 32 };
 }
 
+// A little white cloud for the "poof".
+function puff() {
+  const p = new PixelBuf(40, 28);
+  const white = hex('#ffffff'), shade = hex('#dfe6ee');
+  [[12, 16, 8], [22, 12, 10], [30, 17, 7], [20, 19, 8]].forEach(([x, y, r]) => p.circle(x, y, r, shade));
+  [[11, 14, 7], [21, 10, 9], [29, 15, 6], [19, 17, 7]].forEach(([x, y, r]) => p.circle(x, y, r, white));
+  p.outline(hex('#9aa6b5'));
+  return p.toCanvas();
+}
+
 function glow() {
   const p = new PixelBuf(40, 16);
   p.ellipse(20, 8, 19, 7, [255, 240, 150], 70);
@@ -319,6 +330,7 @@ export function buildSprites() {
     shadowBig: shadow(16, 6),
     shadowSmall: shadow(9, 4),
     glow: glow(),
+    puff: puff(),
     chestClosed: chest(false),
     chestOpen: chest(true),
   };

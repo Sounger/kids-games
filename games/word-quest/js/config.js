@@ -30,6 +30,10 @@ export const CONFIG = {
     pickupRadius: 0.6,   // tiles: walking this close picks the letter up by itself
     reachA: 1.4,         // tiles: pressing A picks up a letter this close
   },
+  decoys: {
+    enabled: true,
+    count: 3,            // letters that are NOT in the word, lying on the map like the real ones
+  },
   chests: {
     share: 0.45,         // part of the letters locked in chests (at least one letter always lies on the ground)
   },

@@ -1,4 +1,4 @@
-// Word Quest — stage 4: letters on the map and in chests (opened by solving a sum), voice and sounds.
+// Word Quest — stage 5: letters on the map and in chests (opened by solving a sum), decoy letters, voice, sounds.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -7,7 +7,8 @@ import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble } from './ui.js';
+import { letterName } from './voice.js';
 import { makeProblem } from './math.js';
 import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
@@ -30,12 +31,15 @@ let stepT = 0;
 let state = 'title';      // title → show → play ⇄ paused / chest → celebrate → win → show …
 let chestTarget = null;   // chest the hero walks to after a click
 let quiz = null;          // the open chest window: { chest, problem, sel, busy }
+let bubbleT = -1;         // thought bubble over the hero, seconds left
 
 function startWord(index) {
   wordIndex = (index + CONFIG.words.length) % CONFIG.words.length;
   map = generateMap(Math.floor(Math.random() * 1e9), CONFIG.map);
   hero = new Hero(map.start.x, map.start.y, CONFIG.hero);
-  word = createWord(CONFIG.words[wordIndex], map, CONFIG.letters, CONFIG.chests);
+  word = createWord(CONFIG.words[wordIndex], map, CONFIG.letters, CONFIG.chests, CONFIG.decoys);
+  bubbleT = -1;
+  hideBubble();
   chestTarget = null;
   quiz = null;
   mathBox.close();
@@ -84,7 +88,25 @@ function updatePadChip() {
   $('soundHint').classList.toggle('hidden', active);
 }
 
+// "Oops! We don't need Z. We need P, L, or E!" — no penalty, the letter just bounces off.
+function rejectDecoy(item) {
+  item.picked = true;
+  item.rejectT = 0;
+  const away = Math.sign(toScreenX(item) - toScreenX(hero)) || 1;
+  item.awayX = away; item.awayY = 0.5;
+  sfx.bloop();
+  setTimeout(() => sfx.poof(), 700);
+  const need = word.missing;
+  const names = need.map(letterName);
+  const list = names.length > 1 ? `${names.slice(0, -1).join(', ')}, or ${names[names.length - 1]}` : names[0];
+  voice.speak([`Oops! We don't need ${letterName(item.ch)}.`, `We need ${list}!`]);
+  showBubble(item.ch, need, word.word);
+  bubbleT = 4;
+}
+const toScreenX = p => p.x - p.y;
+
 function pickUp(item, { say = true } = {}) {
+  if (item.decoy) return rejectDecoy(item);
   const slot = word.take(item);
   hero.hop();
   sfx.pickup();
@@ -250,6 +272,12 @@ function frame(now) {
     if (input.pressed('A')) startWord(wordIndex + 1);
   }
 
+  for (const it of word ? word.rejected : []) { it.rejectT += dt; if (it.rejectT > 1.2) it.rejectT = -2; }
+  if (bubbleT >= 0) {
+    bubbleT -= dt;
+    if (bubbleT < 0 || state !== 'play') { bubbleT = -1; hideBubble(); }
+    else placeBubble(renderer.worldToClient(hero.x, hero.y, 86 + hero.z));
+  }
   for (const c of word ? word.chests : []) if (c.shakeT >= 0) { c.shakeT += dt; if (c.shakeT > 0.45) c.shakeT = -1; }
   renderer.follow(hero, dt);
   renderer.draw(map, hero, now / 1000, word);

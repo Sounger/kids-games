@@ -65,6 +65,8 @@ export function createAudio(cfg) {
     click: () => tone(880, 0.06, { vol: 0.1 }),
     whoosh: () => noise(0.35, { vol: 0.08, freq: 1200, q: 0.6 }),
     jump: () => { tone(220, 0.35, { vol: 0.1, to: 880 }); tone(330, 0.3, { type: 'triangle', vol: 0.08, to: 990, when: 0.05 }); },
+    bloop: () => { tone(500, 0.25, { type: 'sine', vol: 0.2, to: 120 }); tone(380, 0.12, { type: 'square', vol: 0.06, to: 200 }); },
+    poof: () => noise(0.3, { vol: 0.18, freq: 700, q: 0.5 }),
     select: () => tone(660, 0.05, { vol: 0.08 }),
     shake: () => { for (let k = 0; k < 4; k++) noise(0.07, { vol: 0.25, freq: 250, q: 1.5, when: k * 0.08 }); tone(110, 0.3, { type: 'triangle', vol: 0.15 }); },
     chestOpen() {

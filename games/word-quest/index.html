@@ -119,6 +119,20 @@
     .shake { animation: shake 0.45s; }
     @keyframes shake { 20%, 60% { transform: translateX(-16px) rotate(-2deg); } 40%, 80% { transform: translateX(16px) rotate(2deg); } }
 
+    /* Thought bubble over the hero after a decoy: the letters still needed */
+    .bubble {
+      position: fixed; left: 0; top: 0; z-index: 8; pointer-events: none;
+      display: flex; gap: 0.35em; align-items: center; padding: 0.35em 0.6em; border-radius: 26px;
+      background: #fff; border: 5px solid #2b2140; color: #2b2140;
+      font-family: "Press Start 2P", monospace; font-size: clamp(24px, 3vw, 46px); animation: pop 0.35s;
+    }
+    .bubble::after, .bubble::before {
+      content: ""; position: absolute; border-radius: 50%; background: #fff; border: 4px solid #2b2140;
+    }
+    .bubble::after { width: 18px; height: 18px; bottom: -30px; left: 50%; }
+    .bubble::before { width: 10px; height: 10px; bottom: -48px; left: calc(50% - 10px); }
+    .bubble .no { color: #9aa0a6; text-decoration: line-through; text-decoration-thickness: 5px; margin-right: 0.3em; }
+
     .confetti { position: fixed; top: -50px; font-size: clamp(30px, 4vw, 54px); pointer-events: none; z-index: 40; animation: fall linear forwards; }
 
     @keyframes blink { 50% { opacity: 0.35; } }
@@ -131,6 +145,7 @@
 
   <div class="wordbar"><span class="pic" id="barPic"></span><span class="w" id="barWord"></span><button class="say-btn" id="sayBtn" title="Say the word">🔊</button></div>
   <div class="slots" id="slots"></div>
+  <div class="bubble hidden" id="bubble"></div>
 
   <div class="hud">
     <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>

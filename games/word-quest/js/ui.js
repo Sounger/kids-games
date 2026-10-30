@@ -63,6 +63,31 @@ export function flyLetter(ch, colorIdx, from, slotIndex, onDone) {
   requestAnimationFrame(step);
 }
 
+// Thought bubble: the decoy crossed out, then the letters still needed in their colours.
+export function showBubble(decoy, missing, word) {
+  const b = $('bubble');
+  b.innerHTML = '';
+  const no = document.createElement('span');
+  no.className = 'no';
+  no.textContent = decoy;
+  b.appendChild(no);
+  for (const ch of missing) {
+    const s = document.createElement('span');
+    const [face, side] = LETTER_COLORS[word.indexOf(ch) % LETTER_COLORS.length];
+    s.textContent = ch;
+    s.style.color = face;
+    s.style.textShadow = `3px 3px 0 ${side}`;
+    b.appendChild(s);
+  }
+  b.classList.remove('hidden');
+  b.style.animation = 'none'; void b.offsetWidth; b.style.animation = '';
+}
+export function placeBubble(pos) {
+  const b = $('bubble');
+  b.style.transform = `translate(${pos.x}px, ${pos.y}px) translate(-50%, -100%)`;
+}
+export const hideBubble = () => $('bubble').classList.add('hidden');
+
 // ── Chest window: the sum and three answer buttons ──
 export const mathBox = {
   open(problem, onClick) {

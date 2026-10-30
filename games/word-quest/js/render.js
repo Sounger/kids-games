@@ -121,6 +121,10 @@ export function createRenderer(canvas, sprites, viewCfg) {
       }
       items.push({ depth: ch.x + ch.y, chest: ch, sx, sy });
     }
+    for (const it of word ? word.rejected : []) {
+      const s = toScreen(it.x, it.y);
+      items.push({ depth: it.x + it.y + 0.5, rejected: it, sx: Math.round(s.x + o.x), sy: Math.round(s.y + o.y) });
+    }
     ctx.drawImage(sprites.shadowSmall, Math.round(heroPt.x) - 10, Math.round(heroPt.y) - 4);
     items.push({ depth: hero.depth, hero: true });
 
@@ -134,6 +138,7 @@ export function createRenderer(canvas, sprites, viewCfg) {
         ctx.drawImage(spr.img, it.sx - spr.ax + shake, it.sy - spr.ay + 4);
         continue;
       }
+      if (it.rejected) { drawRejected(it.rejected, it.sx, it.sy); continue; }
       if (it.letter) {
         const img = getLetterSprite(it.letter.ch, it.letter.color);
         const bob = Math.round(Math.abs(Math.sin(time * 3 + it.letter.phase)) * 6);
@@ -153,6 +158,29 @@ export function createRenderer(canvas, sprites, viewCfg) {
     // 5. Scale up to the screen
     screen.imageSmoothingEnabled = false;
     screen.drawImage(low.c, 0, 0, view.w * view.scale, view.h * view.scale);
+  }
+
+  // A decoy the hero touched: shakes and turns grey, bounces away, then goes "poof".
+  function drawRejected(it, sx, sy) {
+    const t = it.rejectT;
+    const img = getLetterSprite(it.ch, -1);
+    let x = sx - Math.floor(img.width / 2), y = sy - img.height - 4;
+    if (t < 0.35) {
+      x += Math.round(Math.sin(t * 70) * 3);
+      ctx.drawImage(t < 0.1 ? getLetterSprite(it.ch, it.color) : img, x, y);
+      return;
+    }
+    const k = Math.min(1, (t - 0.35) / 0.45);           // bounce away
+    x += Math.round(it.awayX * 40 * k);
+    y += Math.round(-Math.sin(k * Math.PI) * 30 + it.awayY * 20 * k);
+    if (k < 1) { ctx.globalAlpha = 1 - k * 0.5; ctx.drawImage(img, x, y); }
+    if (t > 0.7) {                                      // poof
+      const p = Math.min(1, (t - 0.7) / 0.4);
+      ctx.globalAlpha = 1 - p;
+      const w = Math.round(40 * (0.6 + p * 0.6)), h = Math.round(28 * (0.6 + p * 0.6));
+      ctx.drawImage(sprites.puff, x + img.width / 2 - w / 2, y + img.height / 2 - h / 2, w, h);
+    }
+    ctx.globalAlpha = 1;
   }
 
   function drawHero(hero, pt) {
