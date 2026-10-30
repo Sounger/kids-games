@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Quest</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗺️</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;700&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; height: 100%; overflow: hidden; background: #245a32; }
+    body { font-family: "Fredoka", system-ui, sans-serif; color: #fff; user-select: none; }
+    #game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; image-rendering: pixelated; cursor: pointer; }
+    .hidden { display: none !important; }
+
+    .overlay {
+      position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3vh; text-align: center; background: rgba(20, 16, 40, 0.55); padding: 16px;
+    }
+    .logo {
+      font-family: "Press Start 2P", monospace; font-size: clamp(32px, 7vw, 110px); line-height: 1.15;
+      color: #ffd23f; text-shadow: 0 6px 0 #b45309, 0 12px 0 #2b2140;
+    }
+    .logo small { display: block; font-size: 0.35em; color: #fff; text-shadow: 0 4px 0 #2b2140; margin-top: 2vh; }
+    .big-btn {
+      font: inherit; font-size: clamp(28px, 4vw, 56px); font-weight: 700; cursor: pointer;
+      min-height: 80px; padding: 12px 48px; border: 5px solid #2b2140; border-radius: 22px;
+      background: #ffd23f; color: #2b2140; box-shadow: 0 8px 0 #2b2140;
+    }
+    .big-btn:active { transform: translateY(6px); box-shadow: 0 2px 0 #2b2140; }
+    .press { font-size: clamp(22px, 3vw, 40px); font-weight: 700; animation: blink 1s steps(2) infinite; }
+    .press b { display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; background: #e94b5b; border: 4px solid #2b2140; }
+
+    .pad-chip {
+      display: inline-flex; align-items: center; gap: 10px; padding: 8px 18px; border-radius: 999px;
+      background: rgba(0, 0, 0, 0.45); font-size: clamp(16px, 1.8vw, 24px); font-weight: 500; color: #d6d3e0;
+    }
+    .pad-chip .dot { width: 14px; height: 14px; border-radius: 50%; background: #9ca3af; }
+    .pad-chip.on { color: #fff; }
+    .pad-chip.on .dot { background: #4ade80; box-shadow: 0 0 10px #4ade80; }
+
+    .hud { position: fixed; top: 12px; right: 12px; display: flex; gap: 10px; align-items: center; }
+    .hud .pad-chip { opacity: 0.85; }
+    body.playing .hud .pad-chip:not(.on) { display: none; }
+    .icon-btn {
+      width: 56px; height: 56px; border-radius: 16px; border: 3px solid #2b2140; background: rgba(255, 255, 255, 0.85);
+      font-size: 28px; cursor: pointer; display: grid; place-items: center; color: #2b2140;
+    }
+    @keyframes blink { 50% { opacity: 0.35; } }
+  </style>
+</head>
+<body>
+  <canvas id="game" aria-label="Word Quest map"></canvas>
+
+  <div class="hud">
+    <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>
+    <button class="icon-btn" id="fsBtn" title="Full screen (F)">⛶</button>
+  </div>
+
+  <section class="overlay" id="title">
+    <div class="logo">WORD<br>QUEST<small>🗺️ Find the letters!</small></div>
+    <button class="big-btn" id="playBtn">▶ PLAY</button>
+    <div class="press">Press <b>A</b> to start</div>
+    <span class="pad-chip"><span class="dot"></span><span class="txt">Gamepad</span></span>
+  </section>
+
+  <section class="overlay hidden" id="pause">
+    <div class="logo">PAUSE</div>
+    <button class="big-btn" id="resumeBtn">▶ GO ON</button>
+  </section>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

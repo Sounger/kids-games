@@ -1,0 +1,242 @@
+// Procedural pixel art: every tile and sprite is drawn by code once at start-up.
+
+import { TW, TH } from './iso.js';
+import { PixelBuf, hex, mulberry32, makeCanvas } from './util.js';
+
+// ── Tiles ──────────────────────────────────────────────────────────────
+// A 64×32 diamond drawn as standard 2:1 pixel steps, so neighbouring tiles meet without gaps.
+function rowSpan(y) {
+  const half = y < TH / 2 ? 2 * (y + 1) : 2 * (TH - y);
+  return [TW / 2 - half, TW / 2 + half - 1];
+}
+export function insideTile(x, y) {
+  if (y < 0 || y >= TH) return false;
+  const [a, b] = rowSpan(y);
+  return x >= a && x <= b;
+}
+// Calls fn(x, y, u, v) for each pixel of the diamond; u, v are 0…1 positions along the tile's two axes.
+function tile(fn) {
+  const p = new PixelBuf(TW, TH);
+  for (let y = 0; y < TH; y++) {
+    const [a, b] = rowSpan(y);
+    for (let x = a; x <= b; x++) {
+      const px = x + 0.5 - TW / 2, py = y + 0.5;
+      const u = (px / (TW / 2) + py / (TH / 2)) / 2;
+      const v = (py / (TH / 2) - px / (TW / 2)) / 2;
+      const col = fn(x, y, u, v);
+      if (col) p.set(x, y, col);
+    }
+  }
+  return p;
+}
+function sprinkle(p, rnd, count, draw) {
+  for (let k = 0; k < count; k++) {
+    const x = 3 + Math.floor(rnd() * (TW - 6)), y = 2 + Math.floor(rnd() * (TH - 4));
+    if (insideTile(x - 2, y) && insideTile(x + 2, y) && insideTile(x, y - 2) && insideTile(x, y + 2)) draw(x, y);
+  }
+}
+
+function grassTile(seed) {
+  const rnd = mulberry32(seed);
+  const base = hex('#7bc95b'), alt = hex('#73c155'), light = hex('#8ad468'), blade = hex('#58a845');
+  const p = tile(() => { const r = rnd(); return r < 0.06 ? light : r < 0.3 ? alt : base; });
+  sprinkle(p, rnd, 8, (x, y) => { p.set(x, y, blade); p.set(x - 1, y - 1, blade); p.set(x + 1, y - 1, blade); });
+  return p.toCanvas();
+}
+
+function pathTile(seed) {
+  const rnd = mulberry32(seed);
+  const base = hex('#ddb57e'), dark = hex('#cba06a'), light = hex('#ecca95'), pebble = hex('#a98458');
+  const p = tile(() => { const r = rnd(); return r < 0.08 ? dark : r < 0.14 ? light : base; });
+  sprinkle(p, rnd, 4, (x, y) => { p.set(x, y, pebble); p.set(x + 1, y, pebble); });
+  return p.toCanvas();
+}
+
+function sandTile(seed) {
+  const rnd = mulberry32(seed);
+  const base = hex('#f0daa2'), dark = hex('#e2c785'), light = hex('#f9ecc6');
+  return tile(() => { const r = rnd(); return r < 0.1 ? dark : r < 0.15 ? light : base; }).toCanvas();
+}
+
+function waterTile(frame) {
+  const deep = hex('#3a8ddf'), mid = hex('#4fa2ec'), foam = hex('#c4e6ff');
+  return tile((x, y, u, v) => {
+    const w = Math.sin((u * 2 + frame / 4) * Math.PI * 2 + Math.sin(v * Math.PI * 2) * 0.8);
+    if (w > 0.93 && (x + y) % 2 === 0) return foam;
+    return w > 0.35 ? mid : deep;
+  }).toCanvas();
+}
+
+function bridgeTile() {
+  const a = hex('#c98b4a'), b = hex('#b97a3c'), gap = hex('#7a4a22'), rail = hex('#8b5a2b'), post = hex('#5e3a1a');
+  return tile((x, y, u, v) => {
+    const k = Math.floor(v * 6), f = v * 6 - k;
+    if (u < 0.1 || u > 0.9) return k % 3 === 0 && f < 0.35 ? post : rail;
+    if (f < 0.14) return gap;
+    return k % 2 ? a : b;
+  }).toCanvas();
+}
+
+function flowerOverlay(seed) {
+  const rnd = mulberry32(seed);
+  const petals = ['#ffffff', '#ff8fab', '#ffd23f', '#c084fc', '#ff6b6b'].map(hex);
+  const p = new PixelBuf(TW, TH);
+  const stem = hex('#3f8f35');
+  sprinkle(p, rnd, 6, (x, y) => {
+    const col = petals[Math.floor(rnd() * petals.length)];
+    p.set(x, y + 2, stem);
+    p.set(x - 1, y, col); p.set(x + 1, y, col); p.set(x, y - 1, col); p.set(x, y + 1, col);
+    p.set(x, y, hex('#f59e0b'));
+  });
+  return p.toCanvas();
+}
+
+// ── Objects ────────────────────────────────────────────────────────────
+// Each object sprite has an "anchor": the pixel that stands on the tile centre.
+
+function roundTree(seed) {
+  const rnd = mulberry32(seed);
+  const p = new PixelBuf(48, 72);
+  p.rect(20, 44, 8, 22, hex('#8b5a2b'));
+  p.rect(25, 44, 3, 22, hex('#6b4220'));
+  const blobs = [[24, 30, 15], [13, 37, 10], [35, 37, 10], [24, 17, 11], [14, 25, 9], [34, 25, 9]]
+    .map(([x, y, r]) => [x + Math.round(rnd() * 2 - 1), y + Math.round(rnd() * 2 - 1), r]);
+  const dark = hex('#2f8a43'), base = hex('#45a852'), light = hex('#74cc6a');
+  blobs.forEach(([x, y, r]) => p.circle(x, y, r, dark));
+  blobs.forEach(([x, y, r]) => p.circle(x - 1, y - 2, r - 3, base));
+  blobs.forEach(([x, y, r]) => p.circle(x - 4, y - 5, Math.max(2, r / 3), light));
+  p.outline(hex('#1d4d2a'));
+  return { img: p.toCanvas(), ax: 24, ay: 65 };
+}
+
+function pineTree() {
+  const p = new PixelBuf(44, 76);
+  p.rect(19, 56, 7, 12, hex('#7a4a22'));
+  p.rect(23, 56, 3, 12, hex('#5e3a1a'));
+  const dark = hex('#2a7a52'), light = hex('#3fa06a'), tip = hex('#6fcf8f');
+  for (let L = 0; L < 4; L++) {
+    const top = 4 + L * 12, h = 20, maxHalf = 8 + L * 4;
+    for (let r = 0; r < h; r++) {
+      const half = Math.round(1 + (r / h) * maxHalf);
+      for (let x = 22 - half; x < 22 + half; x++) p.set(x, top + r, x < 22 - half / 3 ? light : dark);
+    }
+    p.set(21, top + 1, tip); p.set(22, top + 1, tip);
+  }
+  p.outline(hex('#174a33'));
+  return { img: p.toCanvas(), ax: 22, ay: 67 };
+}
+
+function rock() {
+  const p = new PixelBuf(30, 22);
+  p.ellipse(15, 13, 12, 8, hex('#7d8792'));
+  p.ellipse(14, 11, 10, 6, hex('#a7b0ba'));
+  p.ellipse(11, 9, 4, 2, hex('#d4dae0'));
+  p.outline(hex('#3f4752'));
+  return { img: p.toCanvas(), ax: 15, ay: 18 };
+}
+
+// The cottage covers 3×3 tiles. Drawn with shapes, then cleaned up to hard pixels.
+function house() {
+  const W = 200, H = 220;
+  const { c, ctx } = makeCanvas(W, H);
+  const by = H - 100;                                  // y of the footprint's top corner
+  const C = { x: 100, y: by + 48 };                    // footprint centre
+  const corner = (x, y, k, lift = 0) => ({ x: C.x + (x - C.x) * k, y: C.y + (y - C.y) * k - lift });
+  const T = [100, by], R = [196, by + 48], B = [100, by + 96], L = [4, by + 48];
+  const wallH = 44, roofH = 62;
+  const w = pt => corner(pt[0], pt[1], 0.78);
+  const up = (pt, h) => ({ x: pt.x, y: pt.y - h });
+  const poly = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p.x, p.y) : ctx.moveTo(p.x, p.y)); ctx.closePath(); ctx.fill(); };
+
+  const Lw = w(L), Bw = w(B), Rw = w(R);
+  poly([Lw, Bw, up(Bw, wallH), up(Lw, wallH)], '#fde7c3');  // left wall (door side)
+  poly([Bw, Rw, up(Rw, wallH), up(Bw, wallH)], '#e6c492');  // right wall (windows)
+  // A point on a wall: t along the bottom edge, h up from the ground.
+  const onWall = (a, b, t, h) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t - h });
+  const panel = (a, b, t0, t1, h0, h1, col) => poly([onWall(a, b, t0, h0), onWall(a, b, t1, h0), onWall(a, b, t1, h1), onWall(a, b, t0, h1)], col);
+  panel(Lw, Bw, 0.40, 0.64, 0, 30, '#6b4220');
+  panel(Lw, Bw, 0.43, 0.61, 0, 27, '#9a6232');
+  panel(Lw, Bw, 0.12, 0.28, 14, 30, '#ffffff');
+  panel(Lw, Bw, 0.14, 0.26, 16, 28, '#7dd3fc');
+  [[0.18, 0.40], [0.60, 0.82]].forEach(([t0, t1]) => {
+    panel(Bw, Rw, t0, t1, 14, 32, '#ffffff');
+    panel(Bw, Rw, t0 + 0.02, t1 - 0.02, 16, 30, '#7dd3fc');
+  });
+  // Roof: a low pyramid with eaves.
+  const e = pt => corner(pt[0], pt[1], 0.92, wallH);
+  const Te = e(T), Re = e(R), Be = e(B), Le = e(L);
+  const apex = { x: C.x, y: C.y - wallH - roofH };
+  poly([Le, Te, apex], '#b4371f');
+  poly([Te, Re, apex], '#b4371f');
+  poly([Le, Be, apex], '#ef6b4f');
+  poly([Be, Re, apex], '#c84a2c');
+  // Chimney
+  poly([{ x: 128, y: apex.y + 30 }, { x: 140, y: apex.y + 36 }, { x: 140, y: apex.y + 14 }, { x: 128, y: apex.y + 8 }], '#9ca3af');
+
+  const p = new PixelBuf(W, H).fromCanvas(c).outline(hex('#3b2416'));
+  return { img: p.toCanvas(), ax: 100, ay: by + 48 };
+}
+
+// ── Hero ───────────────────────────────────────────────────────────────
+const PAL = {
+  k: '#2b2140', h: '#7a4a2a', s: '#f7c9a0', p: '#f59ab0', m: '#c2410c',
+  r: '#e94b5b', y: '#ffd23f', b: '#3b6fd8', d: '#5b3a1e',
+};
+const HEAD_FRONT = [
+  '....kkkkkkkk....', '...khhhhhhhhk...', '..khhhhhhhhhhk..', '..khhhhhhhhhhk..',
+  '..khhssssssshk..', '..khsssssssshk..', '..kssksssskssk..', '..kssksssskssk..',
+  '..kpsssssssspk..', '...ksssmmsssk...', '....kkkkkkkk....',
+];
+const HEAD_BACK = [
+  '....kkkkkkkk....', '...khhhhhhhhk...', '..khhhhhhhhhhk..', '..khhhhhhhhhhk..',
+  '..khhhhhhhhhhk..', '..khhhhhhhhhhk..', '..khhhhhhhhhhk..', '..khhhhhhhhhhk..',
+  '..khhhhhhhhhhk..', '...khhhhhhhhk...', '....kkkkkkkk....',
+];
+const BODY_FRONT = ['...krrrrrrrrk...', '..ksrrrrrrrrsk..', '..ksrrryyrrrsk..', '..kskrrrrrrksk..', '...kkbbbbbbkk...', '....kbbbbbbk....'];
+const BODY_BACK = ['...krrrrrrrrk...', '..ksrrrrrrrrsk..', '..ksrrrrrrrrsk..', '..kskrrrrrrksk..', '...kkbbbbbbkk...', '....kbbbbbbk....'];
+const LEGS = {
+  stand: ['....kbbkkbbk....', '....kbbkkbbk....', '....kddkkddk....', '....kkkkkkkk....', '................'],
+  walkA: ['....kbbkkbbk....', '...kbbk..kbbk...', '...kddk..kbbk...', '...kkkk..kddk...', '.........kkkk...'],
+  walkB: ['....kbbkkbbk....', '...kbbk..kbbk...', '...kbbk..kddk...', '...kddk..kkkk...', '...kkkk.........'],
+};
+const HERO_SCALE = 2;
+
+function heroFrame(rows) {
+  const p = new PixelBuf(16 * HERO_SCALE, rows.length * HERO_SCALE);
+  rows.forEach((row, y) => [...row.padEnd(16, '.')].forEach((ch, x) => {
+    if (PAL[ch]) p.rect(x * HERO_SCALE, y * HERO_SCALE, HERO_SCALE, HERO_SCALE, hex(PAL[ch]));
+  }));
+  return p.toCanvas();
+}
+
+function heroSprites() {
+  const make = (head, body) => ({
+    stand: heroFrame([...head, ...body, ...LEGS.stand]),
+    walkA: heroFrame([...head, ...body, ...LEGS.walkA]),
+    walkB: heroFrame([...head, ...body, ...LEGS.walkB]),
+  });
+  return { front: make(HEAD_FRONT, BODY_FRONT), back: make(HEAD_BACK, BODY_BACK), w: 16 * HERO_SCALE, h: 22 * HERO_SCALE };
+}
+
+function shadow(rx, ry) {
+  const p = new PixelBuf(rx * 2 + 2, ry * 2 + 2);
+  p.ellipse(rx + 1, ry + 1, rx, ry, [20, 40, 20], 70);
+  return p.toCanvas();
+}
+
+export function buildSprites() {
+  return {
+    grass: [1, 2, 3, 4].map(grassTile),
+    path: [11, 12, 13].map(pathTile),
+    sand: [21, 22].map(sandTile),
+    water: [0, 1, 2, 3].map(waterTile),
+    bridge: bridgeTile(),
+    flowers: [31, 32, 33, 34].map(flowerOverlay),
+    trees: [roundTree(41), roundTree(42), pineTree()],
+    rock: rock(),
+    house: house(),
+    hero: heroSprites(),
+    shadowBig: shadow(16, 6),
+    shadowSmall: shadow(9, 4),
+  };
+}

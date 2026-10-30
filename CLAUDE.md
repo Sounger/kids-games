@@ -18,6 +18,12 @@ Talk to Sam in Russian; keep code, comments and in-game text in English.
   `bash scripts/build.sh <slug>` builds just one.
 - `.github/workflows/pages.yml` — every push to `main` rebuilds and publishes the site.
 
+## Word Quest (in progress)
+- Big isometric RPG in `games/word-quest/` (plain ES modules + Canvas, no build step).
+  The spec is `docs/word-quest-spec.md`; it is built stage by stage (section 13) and Sam
+  confirms each stage before the next. Not in the `hub/` menu until it is finished —
+  Sam tests it at `…/kids-games/word-quest/`.
+
 ## Game rules
 - Audience is 4–6 year olds: huge tap targets (≥ 64px), very few words, clear pictures/emoji,
   sound + animation for feedback, never a harsh "wrong" — encourage and let them retry.
