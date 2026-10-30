@@ -1,4 +1,4 @@
-// Word Quest — stage 6: letters on the map and in chests, decoys, voice, sounds, teacher menu.
+// Word Quest — stage 7: letters on the map and in chests, decoys, voice, sounds, teacher menu, mobs.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -7,7 +7,8 @@ import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble, picker } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox, showBubble, placeBubble, hideBubble, picker, flyFromSlot } from './ui.js';
+import { createMobs } from './mobs.js';
 import { letterName } from './voice.js';
 import { loadSettings, saveSettings, applySettings, activeWords } from './settings.js';
 import { setupGear, createTeacherMenu } from './teacher.js';
@@ -38,6 +39,7 @@ let state = 'title';      // title → show → play ⇄ paused / chest → cele
 let chestTarget = null;   // chest the hero walks to after a click
 let quiz = null;          // the open chest window: { chest, problem, sel, busy }
 let bubbleT = -1;         // thought bubble over the hero, seconds left
+let mobs = null;          // raccoon, slimes and bee (if the teacher has them on)
 
 function startWord(index) {
   const list = words();
@@ -47,6 +49,7 @@ function startWord(index) {
   word = createWord(list[wordIndex], map, CONFIG.letters, CONFIG.chests, CONFIG.decoys);
   bubbleT = -1;
   hideBubble();
+  mobs = CONFIG.mobs.enabled ? createMobs(map, word) : null;
   chestTarget = null;
   quiz = null;
   mathBox.close();
@@ -176,6 +179,7 @@ function pickUp(item, { say = true } = {}) {
   if (say) voice.letter(item.ch);
   flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => {
     sfx.land();
+    word.slots[slot].filled = true;
     arrived++;
     if (arrived === word.slots.length) {
       celebrateT = 0;
@@ -251,6 +255,29 @@ function quizInput() {
   else if (input.pressed('B') || input.pressed('pause')) closeChest();
 }
 
+// ── Mobs ──
+const mobEvents = {
+  // The raccoon knocks one collected letter out of its slot; it lands on the ground nearby.
+  raccoon() {
+    sfx.giggle();
+    const filled = word.slots.map((s, i) => (s.filled ? i : -1)).filter(i => i >= 0);
+    if (!filled.length) return;
+    const slot = filled[Math.floor(Math.random() * filled.length)];
+    const spots = [];
+    for (let dj = -3; dj <= 3; dj++) for (let di = -3; di <= 3; di++) {
+      const i = Math.floor(hero.x) + di, j = Math.floor(hero.y) + dj, d = Math.hypot(di, dj);
+      if (d >= 1.5 && d <= 3 && map.walkable(i, j)) spots.push({ x: i + 0.5, y: j + 0.5 });
+    }
+    const spot = spots[Math.floor(Math.random() * spots.length)] || { x: hero.x, y: hero.y };
+    const item = word.giveBack(slot, spot.x, spot.y);
+    arrived--;
+    voice.speak([`Oh no! The raccoon took ${letterName(item.ch)}!`]);
+    flyFromSlot(item.ch, item.color, slot, renderer.worldToClient(spot.x, spot.y, 20), () => { item.picked = false; sfx.land(); });
+  },
+  slime(m) { hero.knockBack(hero.x - m.x, hero.y - m.y); sfx.boing(); },
+  bee() { hero.slowDown(3); sfx.buzz(); },
+};
+
 // ── Jumping over a rock: A while walking towards it ──
 function tryRockJump() {
   const d = hero.lastDir;
@@ -274,7 +301,10 @@ function play(dt) {
     else if (chest) return openChest(chest);
     else if (!tryRockJump() && hero.hop()) sfx.hop();
   }
-  if (input.pressed('B')) { hero.doClap(); sfx.clap(); }
+  if (input.pressed('B')) {
+    hero.doClap(); sfx.clap();
+    if (mobs?.clap(hero)) setTimeout(() => sfx.squeak(), 150);
+  }
 
   for (const c of input.clicks) {
     const w = renderer.screenToWorld(c.x, c.y);
@@ -300,6 +330,7 @@ function play(dt) {
   if (move.x || move.y) chestTarget = null;
   hero.update(dt, move, map);
   if (chestTarget && !hero.path && dist(chestTarget, hero) < CHEST_REACH) return openChest(chestTarget);
+  mobs?.update(dt, hero, mobEvents);
   stepT = hero.walking ? stepT + dt : 0.2;
   if (stepT >= 0.25) { stepT = 0; sfx.step(); }
 
@@ -347,7 +378,7 @@ function frame(now) {
   }
   for (const c of word ? word.chests : []) if (c.shakeT >= 0) { c.shakeT += dt; if (c.shakeT > 0.45) c.shakeT = -1; }
   renderer.follow(hero, dt);
-  renderer.draw(map, hero, now / 1000, word);
+  renderer.draw(map, hero, now / 1000, word, mobs?.list);
   requestAnimationFrame(frame);
 }
 
@@ -361,5 +392,5 @@ requestAnimationFrame(frame);
 // For quick checks from the browser console.
 window.wq = {
   get map() { return map; }, get hero() { return hero; }, get word() { return word; }, get state() { return state; },
-  input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
+  get mobs() { return mobs; }, input, renderer, startWord, CONFIG, voice, audio, get settings() { return settings; },
 };

@@ -218,6 +218,47 @@ function heroSprites() {
   return { front: make(HEAD_FRONT, BODY_FRONT), back: make(HEAD_BACK, BODY_BACK), w: 16 * HERO_SCALE, h: 22 * HERO_SCALE };
 }
 
+// ── Mobs (friendly pests) ──────────────────────────────────────────────
+function pixelArt(rows, pal, scale = 2) {
+  const w = Math.max(...rows.map(r => r.length));
+  const p = new PixelBuf(w * scale, rows.length * scale);
+  rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (pal[ch]) p.rect(x * scale, y * scale, scale, scale, hex(pal[ch]));
+  }));
+  return p.toCanvas();
+}
+
+const RACCOON_TOP = [
+  '..kk........kk..', '.kdgk......kgdk.', '.kgggkkkkkkgggk.', 'kggggggggggggggk',
+  'kgwwwggggggwwwgk', 'kbbbbwggggwbbbbk', 'kbbebbggggbbebbk', 'kgbbbwggggwbbbgk',
+  '.kgwwwwkkwwwwgk.', '..kgwwwwwwwwgk..', '...kkggggggkk...', '..kggggggggggk..',
+  '..kggggwwggggk..', '..kgggwwwwgggk..',
+];
+const RACCOON_PAL = { k: '#2b2140', g: '#9ca3af', d: '#4b5563', w: '#f3f4f6', b: '#1f2937', e: '#ffffff' };
+function raccoonSprites() {
+  return [
+    pixelArt([...RACCOON_TOP, '..kkdkkkkkkdkk..', '...kk......kk...'], RACCOON_PAL),
+    pixelArt([...RACCOON_TOP, '..kdkkkkkkkkdk..', '..kk........kk..'], RACCOON_PAL),
+  ];
+}
+
+const SLIME = ['....kkkk....', '..kkhhggkk..', '.khgggggggk.', 'kggewggewggk', 'kggekggekggk', 'kggggmmggggk', 'kggggggggggk', '.kddddddddk.', '..kkkkkkkk..'];
+function slimeSprites() {
+  return {
+    normal: pixelArt(SLIME, { k: '#14532d', h: '#bbf7d0', g: '#4ade80', d: '#22a356', e: '#ffffff', w: '#ffffff', m: '#14532d' }, 3),
+    scared: pixelArt(SLIME.map(r => r.replace('mm', 'oo')), { k: '#1e3a8a', h: '#dbeafe', g: '#93c5fd', d: '#60a5fa', e: '#ffffff', w: '#ffffff', o: '#1e3a8a' }, 3),
+  };
+}
+
+const BEE_BODY = ['..kkkkkkk.', '.kyykyykek', 'kyykyykyyk', '.kyykyykk.', '..kkkkkk..'];
+const BEE_PAL = { k: '#2b2140', y: '#facc15', w: '#e0f2fe', e: '#ffffff' };
+function beeSprites() {
+  return [
+    pixelArt(['..ww..ww..', '.wwww.wwww', ...BEE_BODY], BEE_PAL),
+    pixelArt(['..........', '..ww..ww..', ...BEE_BODY], BEE_PAL),
+  ];
+}
+
 // ── Letters ────────────────────────────────────────────────────────────
 // 5×7 block font, drawn big with a 3D side so letters read well from the back of the class.
 const FONT = {
@@ -331,6 +372,9 @@ export function buildSprites() {
     shadowSmall: shadow(9, 4),
     glow: glow(),
     puff: puff(),
+    raccoon: raccoonSprites(),
+    slime: slimeSprites(),
+    bee: beeSprites(),
     chestClosed: chest(false),
     chestOpen: chest(true),
   };

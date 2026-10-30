@@ -50,7 +50,7 @@ export function createRenderer(canvas, sprites, viewCfg) {
 
   function tileHash(i, j) { return ((i * 73856093) ^ (j * 19349663)) >>> 0; }
 
-  function draw(map, hero, time, word) {
+  function draw(map, hero, time, word, mobs = []) {
     const o = offset();
     ctx.fillStyle = '#245a32';
     ctx.fillRect(0, 0, view.w, view.h);
@@ -125,6 +125,15 @@ export function createRenderer(canvas, sprites, viewCfg) {
       const s = toScreen(it.x, it.y);
       items.push({ depth: it.x + it.y + 0.5, rejected: it, sx: Math.round(s.x + o.x), sy: Math.round(s.y + o.y) });
     }
+    for (const m of mobs) {
+      const s = toScreen(m.x, m.y);
+      const sx = Math.round(s.x + o.x), sy = Math.round(s.y + o.y);
+      if (sx < -60 || sx > view.w + 60 || sy < -60 || sy > view.h + 60) continue;
+      ctx.globalAlpha = m.type === 'bee' ? 0.5 : 1;
+      ctx.drawImage(sprites.shadowSmall, sx - 10, sy - 4);
+      ctx.globalAlpha = 1;
+      items.push({ depth: m.x + m.y + (m.type === 'bee' ? 1 : 0), mob: m, sx, sy });
+    }
     ctx.drawImage(sprites.shadowSmall, Math.round(heroPt.x) - 10, Math.round(heroPt.y) - 4);
     items.push({ depth: hero.depth, hero: true });
 
@@ -138,6 +147,7 @@ export function createRenderer(canvas, sprites, viewCfg) {
         ctx.drawImage(spr.img, it.sx - spr.ax + shake, it.sy - spr.ay + 4);
         continue;
       }
+      if (it.mob) { drawMob(it.mob, it.sx, it.sy, time); continue; }
       if (it.rejected) { drawRejected(it.rejected, it.sx, it.sy); continue; }
       if (it.letter) {
         const img = getLetterSprite(it.letter.ch, it.letter.color);
@@ -183,11 +193,39 @@ export function createRenderer(canvas, sprites, viewCfg) {
     ctx.globalAlpha = 1;
   }
 
+  function drawMob(m, sx, sy, time) {
+    if (m.type === 'raccoon') {
+      const img = sprites.raccoon[Math.floor(m.anim * (m.mode === 'flee' ? 12 : 6)) % 2];
+      ctx.drawImage(img, sx - img.width / 2, sy - img.height + 2);
+      if (m.mode === 'flee' && m.modeT < 2) emoji('😆', sx + 14, sy - img.height - 2, 14);
+    } else if (m.type === 'slime') {
+      const img = m.scaredT > 0 ? sprites.slime.scared : sprites.slime.normal;
+      const squash = 1 + Math.sin(m.anim * 6) * 0.12;
+      const w = Math.round(img.width / squash), h = Math.round(img.height * squash);
+      ctx.drawImage(img, sx - Math.floor(w / 2), sy - h + 3, w, h);
+      if (m.scaredT > 0) emoji('💦', sx + 12, sy - h - 2, 12);
+    } else if (m.type === 'bee') {
+      const img = sprites.bee[Math.floor(time * 16) % 2];
+      const y = sy - 30 + Math.round(Math.sin(time * 5) * 3);
+      ctx.drawImage(img, sx - img.width / 2, y - img.height / 2);
+    }
+  }
+  function emoji(ch, x, y, size) {
+    ctx.font = `${size}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.fillText(ch, Math.round(x), Math.round(y));
+  }
+
   function drawHero(hero, pt) {
     const h = sprites.hero;
     const img = h[hero.facing][hero.frame()];
     const x = Math.round(pt.x - h.w / 2), y = Math.round(pt.y - h.h + 3 - hero.z);
     ctx.drawImage(img, x, y);
+    if (hero.dizzy) {
+      const a = performance.now() / 150;
+      emoji('💫', pt.x + Math.cos(a) * 10, y - 2 + Math.sin(a) * 3, 14);
+      emoji('🐝', pt.x - Math.cos(a) * 12, y - 8, 10);
+    }
     if (hero.clap >= 0) {
       const r = 8 + hero.clap * 30;
       ctx.globalAlpha = 1 - hero.clap;

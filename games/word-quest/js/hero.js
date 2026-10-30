@@ -33,6 +33,8 @@ export class Hero {
     this.clapT = -1;
     this.jump = null;      // jumping over a rock: { fx, fy, tx, ty, t }
     this.lastDir = { x: 0.7071, y: 0.7071 }; // last direction the hero tried to walk (world)
+    this.knock = null;     // bounced back by a slime: { vx, vy, t }
+    this.slowT = 0;        // stung by the bee: slow and dizzy for a moment
   }
 
   get depth() { return this.x + this.y; }
@@ -44,6 +46,17 @@ export class Hero {
 
   hop() { if (this.hopT >= 0) return false; this.hopT = 0; return true; }
   doClap() { this.clapT = 0; }
+
+  get dizzy() { return this.slowT > 0; }
+
+  // Pushed back (by a slime): slides away over a quarter of a second, with a little hop.
+  knockBack(dx, dy) {
+    const d = Math.hypot(dx, dy) || 1;
+    this.stopPath();
+    this.knock = { vx: dx / d * 5, vy: dy / d * 5, t: 0.25 };
+    this.hopT = 0;
+  }
+  slowDown(seconds) { this.slowT = seconds; }
 
   // A big arc jump to (tx, ty) — used to hop over rocks.
   jumpTo(tx, ty) {
@@ -62,6 +75,14 @@ export class Hero {
   update(dt, move, map) {
     if (this.hopT >= 0) { this.hopT += dt; if (this.hopT >= HOP_TIME) this.hopT = -1; }
     if (this.clapT >= 0) { this.clapT += dt; if (this.clapT >= CLAP_TIME) this.clapT = -1; }
+    this.slowT = Math.max(0, this.slowT - dt);
+    if (this.knock) {
+      this.moveWithCollisions(this.knock.vx * dt, this.knock.vy * dt, map);
+      this.knock.t -= dt;
+      if (this.knock.t <= 0) this.knock = null;
+      this.walking = false;
+      return;
+    }
     if (this.jump) {
       const j = this.jump;
       j.t = Math.min(JUMP_TIME, j.t + dt);
@@ -73,7 +94,7 @@ export class Hero {
       return;
     }
 
-    const step = this.cfg.speed * dt;
+    const step = this.cfg.speed * (this.slowT > 0 ? 0.45 : 1) * dt;
     let dx = 0, dy = 0;
     if (move.x || move.y) {
       this.stopPath();

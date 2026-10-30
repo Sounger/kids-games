@@ -67,6 +67,19 @@ export function createAudio(cfg) {
     jump: () => { tone(220, 0.35, { vol: 0.1, to: 880 }); tone(330, 0.3, { type: 'triangle', vol: 0.08, to: 990, when: 0.05 }); },
     bloop: () => { tone(500, 0.25, { type: 'sine', vol: 0.2, to: 120 }); tone(380, 0.12, { type: 'square', vol: 0.06, to: 200 }); },
     poof: () => noise(0.3, { vol: 0.18, freq: 700, q: 0.5 }),
+    giggle: () => [1400, 1100, 1500, 1150, 1600, 1200].forEach((f, i) => tone(f, 0.07, { type: 'square', vol: 0.06, when: i * 0.07 })),
+    boing: () => tone(160, 0.3, { type: 'triangle', vol: 0.25, to: 520 }),
+    squeak: () => { tone(1200, 0.12, { vol: 0.07, to: 1800 }); tone(1600, 0.12, { vol: 0.06, to: 2200, when: 0.12 }); },
+    buzz() {
+      if (!ensure() || !sfxOn) return;
+      const t = ctx.currentTime, o = ctx.createOscillator(), lfo = ctx.createOscillator(), lg = ctx.createGain(), g = ctx.createGain();
+      o.type = 'sawtooth'; o.frequency.value = 180;
+      lfo.frequency.value = 30; lg.gain.value = 25;
+      lfo.connect(lg).connect(o.frequency);
+      g.gain.setValueAtTime(0.08, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+      o.connect(g).connect(sfxBus);
+      o.start(t); lfo.start(t); o.stop(t + 0.85); lfo.stop(t + 0.85);
+    },
     select: () => tone(660, 0.05, { vol: 0.08 }),
     shake: () => { for (let k = 0; k < 4; k++) noise(0.07, { vol: 0.25, freq: 250, q: 1.5, when: k * 0.08 }); tone(110, 0.3, { type: 'triangle', vol: 0.15 }); },
     chestOpen() {

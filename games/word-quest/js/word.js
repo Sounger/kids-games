@@ -47,7 +47,7 @@ export function createWord(entry, map, cfg, chestCfg, decoyCfg, rnd = Math.rando
   return {
     word: letters.join(''),
     pic: entry.pic,
-    slots: letters.map(ch => ({ ch, taken: false })),   // taken: a flying letter is on its way
+    slots: letters.map(ch => ({ ch, taken: false, filled: false, item: null })),   // taken: a letter is on its way or in place
     items,
     chests,
     // Picks up an item and returns the slot index it flies to (first free slot with that letter).
@@ -55,7 +55,15 @@ export function createWord(entry, map, cfg, chestCfg, decoyCfg, rnd = Math.rando
       item.picked = true;
       const slot = this.slots.findIndex(s => s.ch === item.ch && !s.taken);
       this.slots[slot].taken = true;
+      this.slots[slot].item = item;
       return slot;
+    },
+    // The raccoon knocks a letter out of its slot: it goes back on the ground at (x, y).
+    giveBack(slotIndex, x, y) {
+      const s = this.slots[slotIndex], item = s.item;
+      s.taken = false; s.filled = false; s.item = null;
+      Object.assign(item, { x, y, chest: null, picked: true });   // picked until it lands
+      return item;
     },
     // Letters lying free on the ground.
     get left() { return this.items.filter(it => !it.picked && !it.chest); },

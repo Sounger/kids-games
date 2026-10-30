@@ -67,6 +67,35 @@ export function flyLetter(ch, colorIdx, from, slotIndex, onDone) {
   requestAnimationFrame(step);
 }
 
+// The other way: a letter jumps out of its slot and falls onto the map (to = page position).
+export function flyFromSlot(ch, colorIdx, slotIndex, to, onDone) {
+  const slot = $('slots').children[slotIndex];
+  const r = slot.getBoundingClientRect();
+  const from = { x: r.left + r.width / 2, y: r.top + r.height / 2 };
+  slot.textContent = '';
+  slot.style.color = ''; slot.style.textShadow = '';
+  slot.classList.remove('filled');
+  const [face, side] = LETTER_COLORS[colorIdx % LETTER_COLORS.length];
+  const el = document.createElement('div');
+  el.className = 'flyer';
+  el.textContent = ch;
+  el.style.color = face;
+  el.style.textShadow = `4px 4px 0 ${side}, -3px 0 0 #2b2140, 3px 0 0 #2b2140, 0 -3px 0 #2b2140, 0 3px 0 #2b2140`;
+  document.body.appendChild(el);
+  const ctrl = { x: (from.x + to.x) / 2, y: Math.min(from.y, to.y) - innerHeight * 0.3 };
+  const dur = 900, t0 = performance.now();
+  function step(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    const x = (1 - t) ** 2 * from.x + 2 * (1 - t) * t * ctrl.x + t * t * to.x;
+    const y = (1 - t) ** 2 * from.y + 2 * (1 - t) * t * ctrl.y + t * t * to.y;
+    el.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%) scale(${1.4 - t * 0.6}) rotate(${-t * 540}deg)`;
+    if (t < 1) return requestAnimationFrame(step);
+    el.remove();
+    onDone();
+  }
+  requestAnimationFrame(step);
+}
+
 // Thought bubble: the decoy crossed out, then the letters still needed in their colours.
 export function showBubble(decoy, missing, word) {
   const b = $('bubble');
