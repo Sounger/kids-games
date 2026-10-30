@@ -267,6 +267,30 @@ export function getLetterSprite(ch, colorIdx) {
   return letterCache.get(key);
 }
 
+// Treasure chest, closed and open. Drawn on a 20×17 grid, every cell 2×2 pixels.
+function chest(open) {
+  const p = new PixelBuf(40, 34);
+  const r = (x, y, w, h, col) => p.rect(x * 2, y * 2, w * 2, h * 2, hex(col));
+  const gold = '#f5c542', goldDark = '#b8860b';
+  if (open) {
+    r(1, 0, 18, 5, '#6b3a1e');           // lid, swung back (we see its inside)
+    r(3, 0, 2, 5, goldDark); r(15, 0, 2, 5, goldDark);
+    r(2, 5, 16, 3, '#fff3a0');           // shining treasure inside
+    r(5, 5, 2, 1, '#ffffff'); r(12, 6, 2, 1, '#ffffff');
+  } else {
+    r(1, 2, 18, 6, '#c0703a');           // lid
+    r(2, 2, 16, 1, '#e09455');
+    r(3, 2, 2, 6, gold); r(15, 2, 2, 6, gold);
+  }
+  r(1, 8, 18, 8, '#a0522d');             // body
+  r(1, 8, 18, 1, '#7a3d1e');
+  r(1, 14, 18, 2, '#7a3d1e');
+  r(3, 8, 2, 8, gold); r(15, 8, 2, 8, gold);
+  if (!open) { r(8, 6, 4, 5, gold); r(9, 8, 2, 2, '#3b2416'); r(8, 6, 4, 1, '#fff1a8'); }
+  p.outline(hex('#2b2140'));
+  return { img: p.toCanvas(), ax: 20, ay: 32 };
+}
+
 function glow() {
   const p = new PixelBuf(40, 16);
   p.ellipse(20, 8, 19, 7, [255, 240, 150], 70);
@@ -295,5 +319,7 @@ export function buildSprites() {
     shadowBig: shadow(16, 6),
     shadowSmall: shadow(9, 4),
     glow: glow(),
+    chestClosed: chest(false),
+    chestOpen: chest(true),
   };
 }

@@ -30,6 +30,13 @@ export const CONFIG = {
     pickupRadius: 0.6,   // tiles: walking this close picks the letter up by itself
     reachA: 1.4,         // tiles: pressing A picks up a letter this close
   },
+  chests: {
+    share: 0.45,         // part of the letters locked in chests (at least one letter always lies on the ground)
+  },
+  math: {
+    max: 30,             // all numbers and answers stay within 0…max (10, 20 or 30)
+    ops: 'both',         // '+', '-' or 'both'
+  },
   voice: {
     rate: 0.85,          // a little slower than normal
     pitch: 1.05,

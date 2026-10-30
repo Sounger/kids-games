@@ -64,6 +64,14 @@ export function createAudio(cfg) {
     clap: () => { noise(0.08, { vol: 0.35, freq: 1800, q: 0.8 }); noise(0.06, { vol: 0.25, freq: 2400, q: 0.8, when: 0.03 }); },
     click: () => tone(880, 0.06, { vol: 0.1 }),
     whoosh: () => noise(0.35, { vol: 0.08, freq: 1200, q: 0.6 }),
+    jump: () => { tone(220, 0.35, { vol: 0.1, to: 880 }); tone(330, 0.3, { type: 'triangle', vol: 0.08, to: 990, when: 0.05 }); },
+    select: () => tone(660, 0.05, { vol: 0.08 }),
+    shake: () => { for (let k = 0; k < 4; k++) noise(0.07, { vol: 0.25, freq: 250, q: 1.5, when: k * 0.08 }); tone(110, 0.3, { type: 'triangle', vol: 0.15 }); },
+    chestOpen() {
+      noise(0.15, { vol: 0.15, freq: 500, q: 1 });
+      arp([784, 988, 1175, 1568, 1976], 0.07, { type: 'triangle', vol: 0.16, when: 0.1 });
+      for (let k = 0; k < 6; k++) tone(2500 + Math.random() * 2000, 0.08, { type: 'sine', vol: 0.05, when: 0.3 + k * 0.06 });
+    },
     win() {
       arp([523, 659, 784, 1047, 784, 1047, 1319], 0.11, { vol: 0.13 });
       arp([262, 330, 392, 523], 0.22, { type: 'triangle', vol: 0.18 });

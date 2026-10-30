@@ -63,6 +63,41 @@ export function flyLetter(ch, colorIdx, from, slotIndex, onDone) {
   requestAnimationFrame(step);
 }
 
+// ── Chest window: the sum and three answer buttons ──
+export const mathBox = {
+  open(problem, onClick) {
+    $('mathText').textContent = problem.text;
+    const box = $('answers');
+    box.innerHTML = '';
+    problem.options.forEach(n => {
+      const b = document.createElement('button');
+      b.className = 'answer';
+      b.textContent = n;
+      b.dataset.value = n;
+      b.onclick = () => onClick(n);
+      box.appendChild(b);
+    });
+    $('math').classList.remove('hidden');
+  },
+  close() { $('math').classList.add('hidden'); },
+  // Buttons still in play (wrong ones disappear).
+  buttons() { return [...$('answers').children].filter(b => !b.classList.contains('gone')); },
+  select(value) {
+    for (const b of $('answers').children) b.classList.toggle('selected', +b.dataset.value === value);
+  },
+  wrong(value) {
+    const b = [...$('answers').children].find(b => +b.dataset.value === value);
+    b?.classList.add('gone');
+    const card = $('mathCard');
+    card.classList.remove('shake'); void card.offsetWidth; card.classList.add('shake');
+  },
+  right(value) {
+    const b = [...$('answers').children].find(b => +b.dataset.value === value);
+    b?.classList.add('right');
+    $('mathText').textContent = $('mathText').textContent.replace('?', value);
+  },
+};
+
 export function confetti() {
   const bits = ['⭐', '🎉', '✨', '🌟', '🎈', '💛', '🍬'];
   for (let i = 0; i < 40; i++) {

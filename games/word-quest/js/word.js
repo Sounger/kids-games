@@ -1,9 +1,10 @@
-// The word of this session: where its letters lie on the map, and which slot each one fills.
+// The word of this session: where its letters lie on the map (some locked in chests),
+// and which slot each one fills.
 
 import { BRIDGE } from './map.js';
 import { shuffle } from './util.js';
 
-export function createWord(entry, map, cfg, rnd = Math.random) {
+export function createWord(entry, map, cfg, chestCfg, rnd = Math.random) {
   const letters = [...entry.word.toUpperCase()];
 
   // Spread the letters over the map: far from the start and from each other.
@@ -17,16 +18,32 @@ export function createWord(entry, map, cfg, rnd = Math.random) {
     }
   }
 
+  const items = letters.map((ch, n) => ({
+    ch, color: n,
+    x: chosen[n].i + 0.5, y: chosen[n].j + 0.5,
+    phase: rnd() * Math.PI * 2,
+    picked: false,
+    chest: null,
+  }));
+
+  // Lock some letters in chests. A chest blocks its tile, so it is only put where it cuts nothing off.
+  const chests = [];
+  const want = letters.length < 2 ? 0 : Math.min(letters.length - 1, Math.max(1, Math.round(letters.length * chestCfg.share)));
+  for (const item of shuffle(rnd, [...items])) {
+    if (chests.length >= want) break;
+    const i = Math.floor(item.x), j = Math.floor(item.y);
+    if (!map.tryBlock(i, j, { type: 'chest' })) continue;
+    const chest = { x: item.x, y: item.y, i, j, item, open: false, shakeT: -1 };
+    item.chest = chest;
+    chests.push(chest);
+  }
+
   return {
     word: letters.join(''),
     pic: entry.pic,
     slots: letters.map(ch => ({ ch, taken: false })),   // taken: a flying letter is on its way
-    items: letters.map((ch, n) => ({
-      ch, color: n,
-      x: chosen[n].i + 0.5, y: chosen[n].j + 0.5,
-      phase: rnd() * Math.PI * 2,
-      picked: false,
-    })),
+    items,
+    chests,
     // Picks up an item and returns the slot index it flies to (first free slot with that letter).
     take(item) {
       item.picked = true;
@@ -34,6 +51,8 @@ export function createWord(entry, map, cfg, rnd = Math.random) {
       this.slots[slot].taken = true;
       return slot;
     },
-    get left() { return this.items.filter(it => !it.picked); },
+    // Letters lying free on the ground.
+    get left() { return this.items.filter(it => !it.picked && !it.chest); },
+    get closedChests() { return this.chests.filter(c => !c.open); },
   };
 }

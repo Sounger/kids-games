@@ -1,6 +1,7 @@
 // Gamepad (D-pad + A + B), keyboard and mouse — all active at the same time.
 //   dirs     — which of up/down/left/right are held this frame
-//   pressed(name) — true on the frame a button went down: 'A', 'B', 'pause', 'fullscreen'
+//   pressed(name) — true on the frame a button went down: 'A', 'B', 'pause', 'fullscreen',
+//                   and 'up' / 'down' / 'left' / 'right' (for choosing in menus)
 //   clicks   — left clicks on the canvas this frame (client coordinates)
 
 const KEY_DIRS = {
@@ -18,6 +19,7 @@ export function createInput(canvas, cfg) {
   const queued = new Set();        // button presses since the last frame
   let clicks = [];
   const padPrev = { A: false, B: false };
+  const dirPrev = { up: false, down: false, left: false, right: false };
   const lastPress = {};
 
   const press = name => {
@@ -82,7 +84,11 @@ export function createInput(canvas, cfg) {
         padPrev[name] = pad[name];
       }
       input.pad = { connected: pad.connected, name: pad.name };
-      for (const d of ['up', 'down', 'left', 'right']) input.dirs[d] = held.has(d) || pad[d];
+      for (const d of ['up', 'down', 'left', 'right']) {
+        input.dirs[d] = held.has(d) || pad[d];
+        if (input.dirs[d] && !dirPrev[d]) press(d);
+        dirPrev[d] = input.dirs[d];
+      }
       input.pressedNow = new Set(queued);
       queued.clear();
       input.clicks = clicks;

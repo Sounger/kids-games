@@ -1,4 +1,4 @@
-// Word Quest — stage 3: one word per session, letters on the map, slots, victory, voice and sounds.
+// Word Quest — stage 4: letters on the map and in chests (opened by solving a sum), voice and sounds.
 
 import { CONFIG } from './config.js';
 import { buildSprites } from './sprites.js';
@@ -7,7 +7,8 @@ import { createInput } from './input.js';
 import { Hero, dpadToWorld } from './hero.js';
 import { createRenderer } from './render.js';
 import { createWord } from './word.js';
-import { setupWordUI, flyLetter, confetti, highlightLetter } from './ui.js';
+import { setupWordUI, flyLetter, confetti, highlightLetter, mathBox } from './ui.js';
+import { makeProblem } from './math.js';
 import { createVoice } from './voice.js';
 import { createAudio } from './audio.js';
 
@@ -26,13 +27,18 @@ let wordIndex = 0;
 let arrived = 0;          // letters that have landed in their slots
 let celebrateT = 0;
 let stepT = 0;
-let state = 'title';      // title → show → play ⇄ paused → celebrate → win → show …
+let state = 'title';      // title → show → play ⇄ paused / chest → celebrate → win → show …
+let chestTarget = null;   // chest the hero walks to after a click
+let quiz = null;          // the open chest window: { chest, problem, sel, busy }
 
 function startWord(index) {
   wordIndex = (index + CONFIG.words.length) % CONFIG.words.length;
   map = generateMap(Math.floor(Math.random() * 1e9), CONFIG.map);
   hero = new Hero(map.start.x, map.start.y, CONFIG.hero);
-  word = createWord(CONFIG.words[wordIndex], map, CONFIG.letters);
+  word = createWord(CONFIG.words[wordIndex], map, CONFIG.letters, CONFIG.chests);
+  chestTarget = null;
+  quiz = null;
+  mathBox.close();
   arrived = 0;
   setupWordUI(word);
   renderer.follow(hero, 0, true);
@@ -78,11 +84,11 @@ function updatePadChip() {
   $('soundHint').classList.toggle('hidden', active);
 }
 
-function pickUp(item) {
+function pickUp(item, { say = true } = {}) {
   const slot = word.take(item);
   hero.hop();
   sfx.pickup();
-  voice.letter(item.ch);
+  if (say) voice.letter(item.ch);
   flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => {
     sfx.land();
     arrived++;
@@ -97,25 +103,118 @@ function pickUp(item) {
 }
 
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const CHEST_REACH = 1.6;
+
+// ── Chests ──
+function openChest(chest) {
+  hero.stopPath();
+  chestTarget = null;
+  const problem = makeProblem(CONFIG.math);
+  quiz = { chest, problem, sel: problem.options[1], busy: false };
+  mathBox.open(problem, answer);
+  mathBox.select(quiz.sel);
+  setState('chest');
+  sfx.click();
+  voice.speak([problem.speech]);
+}
+
+function moveSelection(step) {
+  const values = mathBox.buttons().map(b => +b.dataset.value);
+  const k = values.indexOf(quiz.sel);
+  quiz.sel = values[Math.max(0, Math.min(values.length - 1, k + step))];
+  mathBox.select(quiz.sel);
+  sfx.select();
+}
+
+function answer(n) {
+  if (!quiz || quiz.busy) return;
+  const { chest, problem } = quiz;
+  if (n === problem.answer) {
+    quiz.busy = true;
+    mathBox.right(n);
+    sfx.chestOpen();
+    voice.speak(['Correct!']);
+    setTimeout(() => {
+      mathBox.close();
+      quiz = null;
+      chest.open = true;
+      setState('play');
+      pickUp(chest.item);
+    }, 900);
+  } else {
+    // Never stuck: the wrong answer disappears, so at worst one button is left.
+    mathBox.wrong(n);
+    chest.shakeT = 0;
+    sfx.shake();
+    voice.speak(['Try again!']);
+    quiz.sel = +mathBox.buttons()[0].dataset.value;
+    mathBox.select(quiz.sel);
+  }
+}
+
+function closeChest() {
+  if (!quiz || quiz.busy) return;
+  quiz = null;
+  mathBox.close();
+  setState('play');
+}
+
+function quizInput() {
+  if (input.pressed('left') || input.pressed('up')) moveSelection(-1);
+  if (input.pressed('right') || input.pressed('down')) moveSelection(1);
+  if (input.pressed('A')) answer(quiz.sel);
+  else if (input.pressed('B') || input.pressed('pause')) closeChest();
+}
+
+// ── Jumping over a rock: A while walking towards it ──
+function tryRockJump() {
+  const d = hero.lastDir;
+  const ri = Math.floor(hero.x + d.x * 0.8), rj = Math.floor(hero.y + d.y * 0.8);
+  if (!map.isRock(ri, rj)) return false;
+  const si = Math.round(d.x), sj = Math.round(d.y);
+  const landings = [[ri + si, rj + sj], [ri + si, rj], [ri, rj + sj]].filter(([i, j]) => (i !== ri || j !== rj) && map.walkable(i, j));
+  if (!landings.length) return false;
+  const [li, lj] = landings[0];
+  hero.jumpTo(li + 0.5, lj + 0.5);
+  sfx.jump();
+  return true;
+}
 
 function play(dt) {
   if (input.pressed('pause')) return setState('paused');
-  if (input.pressed('A')) {
+  if (input.pressed('A') && !hero.jump) {
     const near = word.left.filter(it => dist(it, hero) < CONFIG.letters.reachA).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
-    if (near) pickUp(near); else if (hero.hop()) sfx.hop();
+    const chest = word.closedChests.filter(c => dist(c, hero) < CHEST_REACH).sort((a, b) => dist(a, hero) - dist(b, hero))[0];
+    if (near) pickUp(near);
+    else if (chest) return openChest(chest);
+    else if (!tryRockJump() && hero.hop()) sfx.hop();
   }
   if (input.pressed('B')) { hero.doClap(); sfx.clap(); }
 
   for (const c of input.clicks) {
     const w = renderer.screenToWorld(c.x, c.y);
+    const onIt = it => dist(it, w) < 0.9 || dist({ x: it.x - 0.5, y: it.y - 0.5 }, w) < 0.6;
+    // A click on a chest: open it if the hero is next to it, else walk there first.
+    const chest = word.closedChests.find(onIt);
+    if (chest) {
+      if (dist(chest, hero) < CHEST_REACH) return openChest(chest);
+      const goal = map.nearestWalkable(chest.i, chest.j);
+      const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
+      if (path) { hero.walkPath(path, goal); chestTarget = chest; }
+      continue;
+    }
+    chestTarget = null;
     // A click on (or just above) a letter walks to that letter.
-    const letter = word.left.find(it => dist(it, w) < 0.9 || dist({ x: it.x - 0.5, y: it.y - 0.5 }, w) < 0.6);
+    const letter = word.left.find(onIt);
     const goal = letter ? { i: Math.floor(letter.x), j: Math.floor(letter.y) } : map.nearestWalkable(Math.floor(w.x), Math.floor(w.y));
     const path = goal && map.pathTo({ i: Math.floor(hero.x), j: Math.floor(hero.y) }, goal);
     if (path) hero.walkPath(path, goal);
   }
 
-  hero.update(dt, dpadToWorld(input.dirs, CONFIG.controls.dpad), map);
+  const move = dpadToWorld(input.dirs, CONFIG.controls.dpad);
+  if (move.x || move.y) chestTarget = null;
+  hero.update(dt, move, map);
+  if (chestTarget && !hero.path && dist(chestTarget, hero) < CHEST_REACH) return openChest(chestTarget);
   stepT = hero.walking ? stepT + dt : 0.2;
   if (stepT >= 0.25) { stepT = 0; sfx.step(); }
 
@@ -139,6 +238,8 @@ function frame(now) {
     if (input.pressed('pause') || input.pressed('A')) setState('play');
   } else if (state === 'play') {
     play(dt);
+  } else if (state === 'chest') {
+    quizInput();
   } else if (state === 'celebrate') {
     celebrateT += dt;
     hero.update(dt, { x: 0, y: 0 }, map);
@@ -149,6 +250,7 @@ function frame(now) {
     if (input.pressed('A')) startWord(wordIndex + 1);
   }
 
+  for (const c of word ? word.chests : []) if (c.shakeT >= 0) { c.shakeT += dt; if (c.shakeT > 0.45) c.shakeT = -1; }
   renderer.follow(hero, dt);
   renderer.draw(map, hero, now / 1000, word);
   requestAnimationFrame(frame);

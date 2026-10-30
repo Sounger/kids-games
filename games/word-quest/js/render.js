@@ -110,6 +110,17 @@ export function createRenderer(canvas, sprites, viewCfg) {
       ctx.globalAlpha = 1;
       items.push({ depth: it.x + it.y, letter: it, sx, sy });
     }
+    for (const ch of word ? word.chests : []) {
+      const s = toScreen(ch.x, ch.y);
+      const sx = Math.round(s.x + o.x), sy = Math.round(s.y + o.y);
+      if (sx < -40 || sx > view.w + 40 || sy < -20 || sy > view.h + 60) continue;
+      if (!ch.open) {
+        ctx.globalAlpha = 0.6 + Math.sin(time * 3 + ch.x) * 0.3;
+        ctx.drawImage(sprites.glow, sx - 20, sy - 8);
+        ctx.globalAlpha = 1;
+      }
+      items.push({ depth: ch.x + ch.y, chest: ch, sx, sy });
+    }
     ctx.drawImage(sprites.shadowSmall, Math.round(heroPt.x) - 10, Math.round(heroPt.y) - 4);
     items.push({ depth: hero.depth, hero: true });
 
@@ -117,6 +128,12 @@ export function createRenderer(canvas, sprites, viewCfg) {
     items.sort((a, b) => a.depth - b.depth);
     for (const it of items) {
       if (it.hero) { drawHero(hero, heroPt); continue; }
+      if (it.chest) {
+        const spr = it.chest.open ? sprites.chestOpen : sprites.chestClosed;
+        const shake = it.chest.shakeT >= 0 ? Math.round(Math.sin(it.chest.shakeT * 50) * 3) : 0;
+        ctx.drawImage(spr.img, it.sx - spr.ax + shake, it.sy - spr.ay + 4);
+        continue;
+      }
       if (it.letter) {
         const img = getLetterSprite(it.letter.ch, it.letter.color);
         const bob = Math.round(Math.abs(Math.sin(time * 3 + it.letter.phase)) * 6);

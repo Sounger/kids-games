@@ -1,6 +1,6 @@
 // The hero: walks with the D-pad / keys, or follows a path after a mouse click.
 
-const HOP_TIME = 0.4, CLAP_TIME = 0.4;
+const HOP_TIME = 0.4, CLAP_TIME = 0.4, JUMP_TIME = 0.55;
 
 // D-pad → world direction. 'iso': along the grid (screen diagonals); 'screen': straight up/down/left/right.
 export function dpadToWorld(dirs, mode) {
@@ -31,14 +31,26 @@ export class Hero {
     this.target = null;    // tile the mouse path ends on (for the marker)
     this.hopT = -1;
     this.clapT = -1;
+    this.jump = null;      // jumping over a rock: { fx, fy, tx, ty, t }
+    this.lastDir = { x: 0.7071, y: 0.7071 }; // last direction the hero tried to walk (world)
   }
 
   get depth() { return this.x + this.y; }
-  get z() { return this.hopT >= 0 ? Math.sin(Math.PI * this.hopT / HOP_TIME) * 10 : 0; }
+  get z() {
+    if (this.jump) return Math.sin(Math.PI * this.jump.t / JUMP_TIME) * 24;
+    return this.hopT >= 0 ? Math.sin(Math.PI * this.hopT / HOP_TIME) * 10 : 0;
+  }
   get clap() { return this.clapT >= 0 ? this.clapT / CLAP_TIME : -1; }
 
   hop() { if (this.hopT >= 0) return false; this.hopT = 0; return true; }
   doClap() { this.clapT = 0; }
+
+  // A big arc jump to (tx, ty) — used to hop over rocks.
+  jumpTo(tx, ty) {
+    this.stopPath();
+    this.hopT = -1;
+    this.jump = { fx: this.x, fy: this.y, tx, ty, t: 0 };
+  }
 
   walkPath(tiles, target) {
     this.path = tiles.slice(1).map(t => ({ x: t.i + 0.5, y: t.j + 0.5 }));
@@ -50,6 +62,16 @@ export class Hero {
   update(dt, move, map) {
     if (this.hopT >= 0) { this.hopT += dt; if (this.hopT >= HOP_TIME) this.hopT = -1; }
     if (this.clapT >= 0) { this.clapT += dt; if (this.clapT >= CLAP_TIME) this.clapT = -1; }
+    if (this.jump) {
+      const j = this.jump;
+      j.t = Math.min(JUMP_TIME, j.t + dt);
+      const k = j.t / JUMP_TIME;
+      this.x = j.fx + (j.tx - j.fx) * k;
+      this.y = j.fy + (j.ty - j.fy) * k;
+      this.walking = false;
+      if (j.t >= JUMP_TIME) this.jump = null;
+      return;
+    }
 
     const step = this.cfg.speed * dt;
     let dx = 0, dy = 0;
@@ -73,6 +95,8 @@ export class Hero {
 
     this.walking = Math.abs(dx) + Math.abs(dy) > 1e-4;
     if (this.walking) {
+      const len = Math.hypot(dx, dy);
+      this.lastDir = { x: dx / len, y: dy / len };
       this.walkTime += dt;
       const screenDy = dx + dy;           // moving up or down on screen
       if (screenDy < -1e-4) this.facing = 'back';

@@ -199,8 +199,18 @@ export function generateMap(seed, cfg) {
     return out;
   };
 
+  // Blocks a tile with a new object (a chest) only if every free tile stays reachable.
+  const tryBlock = (i, j, o) => {
+    if (!walkable(i, j)) return false;
+    obj[idx(i, j)] = o;
+    if (reachable() === free - 1) { free--; return true; }
+    obj[idx(i, j)] = null;
+    return false;
+  };
+
   return {
-    N, ground, obj, flowers, objects, start, door, bridges, MARGIN, reachableTiles,
+    N, ground, obj, flowers, objects, start, door, bridges, MARGIN, reachableTiles, tryBlock,
+    isRock: (i, j) => inside(i, j) && obj[idx(i, j)]?.type === 'rock',
     groundAt: (i, j) => (inside(i, j) ? ground[idx(i, j)] : outsideGround(i, j)),
     idx, inside, walkable, nearestWalkable,
     pathTo: (from, to) => findPath(N, walkable, from, to),
