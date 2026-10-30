@@ -64,11 +64,12 @@ function startWord(index) {
   word = createWord(list[wordIndex], map, CONFIG.letters, CONFIG.chests, CONFIG.decoys);
   bubbleT = -1;
   hideBubble();
-  mobs = CONFIG.mobs.enabled ? createMobs(map, word) : null;
   life = createLife(map, CONFIG.weather.enabled);
   audio.startAmbient(life.weather);
   owl = placeOwl();
   hatch = CONFIG.cave.enabled ? placeHatch() : null;
+  // Mobs last: they must not start on a tile the owl or the trapdoor took.
+  mobs = CONFIG.mobs.enabled ? createMobs(map, word) : null;
   cave = null; inCave = false; surface = null; bonus = 0; toldHole = false;
   updateBonus();
   hint = null; hintT = 0;
@@ -84,6 +85,13 @@ function startWord(index) {
 
 // "Apple. A-P-P-L-E. Apple!" — the big word lights up letter by letter.
 const sayWord = () => voice.spell(word.word, highlightLetter);
+
+// For changes that come a moment later (a letter landing, a chest opening): if the teacher
+// menu is open meanwhile, the game goes there when the menu closes instead of underneath it.
+function setLaterState(s) {
+  if (state === 'teacher') beforeTeacher = s;
+  else setState(s);
+}
 
 function setState(s) {
   state = s;
@@ -194,7 +202,7 @@ function rejectDecoy(item) {
   const need = word.missing;
   const names = need.map(letterName);
   const list = names.length > 1 ? `${names.slice(0, -1).join(', ')}, or ${names[names.length - 1]}` : names[0];
-  voice.speak([`Oops! We don't need ${letterName(item.ch)}.`, `We need ${list}!`]);
+  voice.speak([`Oops! We don't need ${letterName(item.ch)}.`, ...(list ? [`We need ${list}!`] : [])]);
   showBubble(item.ch, need, word.word);
   bubbleT = 4;
   bubbleOn = 'hero';
@@ -236,7 +244,8 @@ function pickUp(item) {
   if (!item.chest && !inCave) { life.bloom(item.x, item.y); sfx.bloom(); }
   if (hint === item) hintT = 0;
   voice.letter(item.ch);
-  flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => landed(slot));
+  const w = word;
+  flyLetter(item.ch, item.color, renderer.worldToClient(item.x, item.y, 24), slot, () => { if (w === word) landed(slot); });
 }
 
 // A letter has landed in its slot; the last one wins the game.
@@ -251,7 +260,7 @@ function landed(slot) {
     music.stop(0.3);
     music.jingle('victory');
     voice.speak(['Great job!', `${word.word.toLowerCase()}!`]);
-    setState('celebrate');
+    setLaterState('celebrate');
   }
 }
 
@@ -306,12 +315,14 @@ function goldenLetter(item) {
   if (!ch) return addBonus(3);
   const others = word.items.filter(it => !it.picked && !it.decoy && it.ch === ch);
   const twin = others.find(it => !it.chest) || others[0];
+  if (!twin) return addBonus(3);
   if (twin.chest) twin.chest.open = true;
   const slot = word.take(twin);
   sfx.chestOpen();
   music.jingle('chest');
   voice.speak(['A golden letter!', `${letterName(ch)}!`]);
-  flyLetter(ch, twin.color, renderer.worldToClient(item.x, item.y, 24), slot, () => landed(slot));
+  const w = word;
+  flyLetter(ch, twin.color, renderer.worldToClient(item.x, item.y, 24), slot, () => { if (w === word) landed(slot); });
 }
 
 function addBonus(n) {
@@ -379,11 +390,13 @@ function answer(n) {
     sfx.chestOpen();
     music.jingle('chest');
     voice.speak(['Correct!']);
+    const w = word, q = quiz;
     setTimeout(() => {
+      if (w !== word || q !== quiz) return;   // a new word was started meanwhile
       mathBox.close();
       quiz = null;
       chest.open = true;
-      setState('play');
+      setLaterState('play');
       if (chest.bonus) addBonus(chest.bonus);
       else pickUp(chest.item);
     }, 900);
@@ -406,6 +419,7 @@ function closeChest() {
 }
 
 function quizInput() {
+  if (!quiz) return setState('play');
   if (input.pressed('left') || input.pressed('up')) moveSelection(-1);
   if (input.pressed('right') || input.pressed('down')) moveSelection(1);
   if (input.pressed('A')) { if (quiz.sel === null) moveSelection(0); else answer(quiz.sel); }

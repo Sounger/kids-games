@@ -163,6 +163,9 @@ export function createMusic(audio, cfg, files = {}) {
       const song = compiled[name] ||= compile(def);
       let step = 0, next = ctx.currentTime + 0.05;
       track.timer = setInterval(() => {
+        // If the browser held the timer back (window hidden), skip what was missed
+        // instead of playing all those notes at once.
+        if (next < ctx.currentTime - 0.1) next = ctx.currentTime + 0.05;
         while (!track.stopped && next < ctx.currentTime + 0.2) {
           for (const ev of song.steps[step] || []) note(ctx, out, ev, next, ev.len * song.stepDur);
           next += song.stepDur;
