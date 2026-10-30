@@ -19,7 +19,15 @@ export const CONFIG = {
     radius: 0.28,        // tiles, for bumping into things
   },
   // Word sets the game starts with. The teacher can change them all in the teacher menu.
+  // A set with a `key` is also added (once) for teachers who already have saved settings.
   wordSets: [
+    { key: 'ai-ay-oi-oy', name: 'ai ay oi oy', words: [
+      { word: 'TRAY', pic: '🍽️' }, { word: 'SNAIL', pic: '🐌' }, { word: 'RAIN', pic: '🌧️' },
+      { word: 'HAY', pic: '🌾' }, { word: 'SPRAY', pic: '💦' }, { word: 'PAINT', pic: '🎨' },
+      { word: 'OIL', pic: '🛢️' }, { word: 'POINT', pic: '👉' }, { word: 'BOY', pic: '👦' },
+      { word: 'BOIL', pic: '♨️' }, { word: 'COIN', pic: '🪙' }, { word: 'TOY', pic: '🧸' },
+      { word: 'BOX', pic: '📦' },
+    ] },
     { name: 'Mix', words: [
       { word: 'APPLE', pic: '🍎' }, { word: 'CAT', pic: '🐱' }, { word: 'SUN', pic: '☀️' },
       { word: 'FISH', pic: '🐟' }, { word: 'BALL', pic: '⚽' }, { word: 'FROG', pic: '🐸' },

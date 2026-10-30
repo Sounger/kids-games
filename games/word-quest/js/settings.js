@@ -14,6 +14,7 @@ export function defaultSettings() {
   return {
     version: 1,
     sets,
+    presetsSeen: CONFIG.wordSets.filter(s => s.key).map(s => s.key),
     activeSet: sets[0].id,
     play: clone(CONFIG.play),
     math: clone(CONFIG.math),
@@ -65,6 +66,15 @@ export function cleanSettings(raw) {
     },
   };
   out.activeSet = out.sets.some(s => s.id === raw.activeSet) ? raw.activeSet : out.sets[0].id;
+  // New built-in sets (with a key) are added at the top once, even to saved settings,
+  // and played next. A set the teacher deleted later does not come back.
+  out.presetsSeen = Array.isArray(raw.presetsSeen) ? raw.presetsSeen.filter(k => typeof k === 'string') : [];
+  for (const preset of CONFIG.wordSets.filter(p => p.key && !out.presetsSeen.includes(p.key)).reverse()) {
+    const set = { id: newId(), name: preset.name, words: clone(preset.words) };
+    out.sets.unshift(set);
+    out.activeSet = set.id;
+    out.presetsSeen.push(preset.key);
+  }
   return out;
 }
 

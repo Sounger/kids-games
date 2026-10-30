@@ -34,6 +34,7 @@ const music = createMusic(audio, CONFIG.audio, CONFIG.musicFiles);
 
 let settings = loadSettings();
 applySettings(settings);
+saveSettings(settings);   // keeps any new built-in word set that was just added
 const words = () => activeWords(settings);
 const players = createPlayers();
 
