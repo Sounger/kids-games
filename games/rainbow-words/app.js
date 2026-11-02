@@ -1,22 +1,42 @@
 // Rainbow Words — the teacher types a list of words; one word fills the screen,
 // every letter in its own colour. Point at a letter (mouse, finger or arrow keys)
 // and it grows big and hops, so the class can look at it sound by sound.
+// Digraphs (sh, oi, ay…) stay together: one colour of their own, and they pop up as one.
 
 const $ = id => document.getElementById(id);
 
 // ── Sample content (the teacher replaces it in the ✏️ editor) ──
 const SAMPLE = {
-  words: ['cat', 'dog', 'sun', 'pig', 'fish', 'ship', 'frog', 'shell', 'rain', 'snail', 'boy', 'coin'],
+  words: ['cat', 'dog', 'sun', 'pig', 'fish', 'ship', 'frog', 'shell', 'rain', 'snail', 'boy', 'coin', 'tray', 'oil'],
+  digraphs: ['sh', 'ch', 'th', 'wh', 'ph', 'ck', 'ng', 'qu', 'ai', 'ay', 'oi', 'oy', 'ee', 'ea', 'oa', 'oo',
+    'ou', 'ow', 'ar', 'or', 'er', 'ir', 'ur', 'igh', 'air', 'ear', 'tch'],
 };
 // Letter colours: bright and easy to read on white. Next letters never share a colour.
-const COLORS = ['#ef4444', '#f59e0b', '#16a34a', '#0891b2', '#2563eb', '#7c3aed', '#db2777', '#65a30d', '#ea580c', '#9333ea'];
+const COLORS = ['#ef4444', '#f59e0b', '#16a34a', '#0891b2', '#2563eb', '#7c3aed', '#65a30d', '#ea580c', '#9333ea'];
+// Digraphs have their own colour that single letters never get.
+const DIGRAPH_COLOR = '#db2777';
 
-let data = { words: [...SAMPLE.words] };
+let data = { words: [...SAMPLE.words], digraphs: [...SAMPLE.digraphs] };
 try {
   const saved = JSON.parse(localStorage.getItem('rw-data') || 'null');
   if (saved && Array.isArray(saved.words)) data = saved;
   else if (saved && Array.isArray(saved.groups)) data = { words: saved.groups.flat() };   // older version kept groups
+  if (!Array.isArray(data.digraphs)) data.digraphs = [...SAMPLE.digraphs];
 } catch (e) {}
+
+// Cut a word into pieces: digraphs from the list (longest first) and single letters.
+// "snail" → s, n, ai, l
+function chunks(word) {
+  const list = [...new Set(data.digraphs.map(d => d.toLowerCase()))].sort((a, b) => b.length - a.length);
+  const out = [];
+  for (let i = 0; i < word.length;) {
+    const d = list.find(d => d.length > 1 && word.toLowerCase().startsWith(d, i));
+    const len = d ? d.length : 1;
+    out.push({ text: word.slice(i, i + len), digraph: !!d });
+    i += len;
+  }
+  return out;
+}
 const saveData = () => { try { localStorage.setItem('rw-data', JSON.stringify(data)); } catch (e) {} };
 // Words come in a random order: `order` is a shuffled list of word numbers,
 // `at` is the place in it. After the last one a new shuffle starts.
@@ -53,6 +73,8 @@ function tone(f, dur, { type = 'sine', vol = 0.12, when = 0, to = null } = {}) {
 const SCALE = [523, 587, 659, 784, 880, 1047, 1175, 1319];
 const sfx = {
   // Each letter has its own note, going up the word.
+  // A digraph: two quick notes that slide up together — "wow!".
+  digraph: () => { tone(660, 0.14, { type: 'square', vol: 0.05, to: 990 }); tone(990, 0.3, { type: 'triangle', vol: 0.1, when: 0.1, to: 1480 }); },
   pop: k => tone(SCALE[k % SCALE.length], 0.2, { type: 'triangle', vol: 0.09, to: SCALE[k % SCALE.length] * 1.5 }),
   whoosh: () => tone(300, 0.35, { type: 'triangle', vol: 0.06, to: 900 }),
 };
@@ -101,7 +123,7 @@ let active = null;   // the letter that is big now
 
 // The word is as big as the screen allows: long words get a smaller font.
 function fitWord() {
-  const box = $('sentence'), n = Math.max(letters.length, 1);
+  const box = $('sentence'), n = Math.max(box.textContent.length, 1);
   const cardW = $('card').clientWidth - 40;
   const fs = Math.min(320, innerHeight * 0.34, (cardW * 0.9) / (n * 0.62 + 0.1));
   box.style.fontSize = Math.max(40, fs).toFixed(0) + 'px';
@@ -121,15 +143,15 @@ function show(i, dir = 0) {
   at = Math.min(Math.max(i, 0), list.length - 1);
   box.innerHTML = '';
   let colorAt = order[at] * 3;   // each word starts on a different colour
-  letters = [...list[order[at]]].map((ch, n) => {
-    const c = COLORS[colorAt++ % COLORS.length];
+  letters = chunks(list[order[at]]).map(({ text, digraph }, n) => {
+    const c = digraph ? DIGRAPH_COLOR : COLORS[colorAt++ % COLORS.length];
     const w = document.createElement('span');
-    w.className = 'word';
+    w.className = 'word' + (digraph ? ' dg' : '');
     w.style.setProperty('--n', n);
     w.style.setProperty('--tilt', (n % 2 ? 1 : -1) * (8 + (n * 7) % 14));
     w.style.setProperty('--c', c);
     w.dataset.color = c;
-    w.innerHTML = `<span class="in"><span class="l" style="--i:0;--lc:${c}">${esc(ch)}</span></span>`;
+    w.innerHTML = `<span class="in">${[...text].map((ch, k) => `<span class="l" style="--i:${k};--lc:${c}">${esc(ch)}</span>`).join('')}</span>`;
     box.appendChild(w);
     return w;
   });
@@ -190,7 +212,7 @@ function setActive(w) {
   w.classList.add('on');
   const k = letters.indexOf(w);
   [letters[k - 1], letters[k + 1]].forEach(x => x && x.classList.add('near'));
-  sfx.pop(k);
+  if (w.classList.contains('dg')) sfx.digraph(); else sfx.pop(k);
   sparkle(w, w.dataset.color);
 }
 
@@ -240,14 +262,20 @@ addEventListener('resize', () => { setActive(null); fitWord(); });
 const splitWords = text => text.split(/[\s,;]+/).map(w => w.trim()).filter(Boolean);
 function openEditor(content = data) {
   $('wordsBox').value = content.words.join(', ');
+  $('digraphsBox').value = content.digraphs.join(', ');
+  digraphChips();
   $('editor').classList.remove('hidden');
 }
+function digraphChips() {
+  $('digraphChips').innerHTML = splitWords($('digraphsBox').value).map(d => `<span class="chip">${esc(d)}</span>`).join('');
+}
+$('digraphsBox').oninput = digraphChips;
 function closeEditor() { $('editor').classList.add('hidden'); }
 $('editBtn').onclick = () => openEditor();
 $('cancelBtn').onclick = closeEditor;
 $('sampleBtn').onclick = () => openEditor(SAMPLE);   // fills the box; nothing is saved until ✔ Save
 $('saveBtn').onclick = () => {
-  data = { words: splitWords($('wordsBox').value) };
+  data = { words: splitWords($('wordsBox').value), digraphs: splitWords($('digraphsBox').value) };
   saveData();
   closeEditor();
   shuffleOrder();
