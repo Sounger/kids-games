@@ -26,8 +26,17 @@ try {
   if (saved && Array.isArray(saved.sentences) && Array.isArray(saved.tricky)) data = saved;
 } catch (e) {}
 const saveData = () => { try { localStorage.setItem('tw-data', JSON.stringify(data)); } catch (e) {} };
-let at = 0;
-try { at = Math.max(0, parseInt(localStorage.getItem('tw-at'), 10) || 0); } catch (e) {}
+// Sentences come in a random order: `order` is a shuffled list of sentence numbers,
+// `at` is the place in it. After the last one a new shuffle starts.
+let at = 0, order = [];
+function shuffleOrder() {
+  const last = order[order.length - 1];
+  order = data.sentences.map((_, k) => k);
+  for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+  // Don't show the same sentence twice in a row across two rounds.
+  if (order.length > 1 && order[0] === last) [order[0], order[1]] = [order[1], order[0]];
+}
+shuffleOrder();
 
 // "Don't", "don’t" and "DON'T" all count as the same word.
 const norm = w => w.toLowerCase().replace(/[’‘`]/g, "'");
@@ -111,11 +120,10 @@ function show(i, dir = 0) {
     return;
   }
   at = Math.min(Math.max(i, 0), list.length - 1);
-  try { localStorage.setItem('tw-at', at); } catch (e) {}
   const tricky = trickySet();
   box.innerHTML = '';
-  let colorAt = at * 3;   // each sentence starts on a different colour
-  words = list[at].split(/\s+/).filter(Boolean).map((token, n) => {
+  let colorAt = order[at] * 3;   // each sentence starts on a different colour
+  words = list[order[at]].split(/\s+/).filter(Boolean).map((token, n) => {
     // "hello," → "" + "hello" + ","
     const m = token.match(/^([^\p{L}\p{N}]*)(.*?)([^\p{L}\p{N}]*)$/u);
     const [, lead, core, tail] = m && m[2] ? m : [null, '', token, ''];
@@ -152,10 +160,12 @@ function renderDots() {
     box.appendChild(d);
   });
   $('prevBtn').disabled = at <= 0;
-  $('nextBtn').disabled = at >= data.sentences.length - 1;
+  $('nextBtn').disabled = data.sentences.length < 2;
 }
 
 function go(i) {
+  // Past the last sentence: shuffle again and start a new round.
+  if (i >= data.sentences.length && data.sentences.length > 1) { shuffleOrder(); sfx.whoosh(); show(0, 1); return; }
   if (i < 0 || i >= data.sentences.length || i === at) return;
   const dir = i > at ? 1 : -1;
   sfx.whoosh();
@@ -256,8 +266,9 @@ $('saveBtn').onclick = () => {
   };
   saveData();
   closeEditor();
-  show(Math.min(at, data.sentences.length - 1));
+  shuffleOrder();
+  show(0);
 };
 
 soundIcon();
-show(at);
+show(0);
