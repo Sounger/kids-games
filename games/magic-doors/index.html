@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Magic Doors</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚪</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-screen="hall">
+
+  <!-- ── The hall with three doors ── -->
+  <section class="screen" id="hall">
+    <div class="torch left"><div class="flame"></div></div>
+    <div class="torch right"><div class="flame"></div></div>
+    <div class="sparkles" id="hallSparkles"></div>
+
+    <header class="hall-top">
+      <h1><span>M</span><span>a</span><span>g</span><span>i</span><span>c</span> <span>D</span><span>o</span><span>o</span><span>r</span><span>s</span></h1>
+      <button class="range-badge" id="rangeBadge" title="Numbers up to…">0 – 20</button>
+    </header>
+
+    <div class="doors" id="doors"></div>
+    <div class="hall-floor"></div>
+  </section>
+
+  <!-- ── A room behind a door: one sum at a time ── -->
+  <section class="screen hidden" id="room">
+    <div class="room-bg" id="roomBg"></div>
+    <div class="room-top">
+      <button class="round-btn" id="backBtn" title="Back to the doors">🚪</button>
+      <div class="path" id="path"></div>
+    </div>
+    <div class="room-main">
+      <div class="mascot" id="mascot"></div>
+      <div class="card" id="card">
+        <div class="sum" id="sum"></div>
+        <div class="helpers" id="helpers"></div>
+      </div>
+    </div>
+    <div class="answers" id="answers"></div>
+  </section>
+
+  <!-- ── Treasure at the end of a room ── -->
+  <section class="overlay hidden" id="done">
+    <div class="treasure">
+      <div class="chest" id="chest">
+        <div class="lid"></div>
+        <div class="box"></div>
+        <div class="glow"></div>
+      </div>
+      <h2 id="doneTitle">Great job!</h2>
+      <div class="done-stars" id="doneStars"></div>
+      <div class="row">
+        <button class="big-btn" id="againBtn">🔄 Again</button>
+        <button class="big-btn alt" id="doorsBtn">🚪 Doors</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── Settings for the teacher ── -->
+  <section class="overlay hidden" id="settings">
+    <div class="panel">
+      <h2>⚙️ Settings</h2>
+      <div class="set-label">Numbers up to</div>
+      <div class="chips" id="rangeChips"></div>
+      <div class="set-label">Sums in one room</div>
+      <div class="chips" id="countChips"></div>
+      <div class="set-label">Picture help (apples to count, up to 10)</div>
+      <div class="chips" id="helpChips"></div>
+      <div class="set-label">Voice</div>
+      <div class="chips" id="voiceChips"></div>
+      <button class="big-btn" id="settingsDone">✔ OK</button>
+    </div>
+  </section>
+
+  <div class="hud">
+    <button class="round-btn small" id="soundBtn" title="Sound on/off">🔊</button>
+    <button class="round-btn small" id="gearBtn" title="Settings">⚙️</button>
+    <button class="round-btn small" id="fsBtn" title="Full screen">⛶</button>
+  </div>
+  <div id="fx"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
