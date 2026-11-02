@@ -146,6 +146,7 @@ h1 span:nth-child(8) { animation-delay: .7s; } h1 span:nth-child(9) { animation-
 .card.enter { animation: slideIn 0.45s cubic-bezier(.2, 1.4, .4, 1); }
 .card.shake { animation: shake 0.45s; }
 .sum { font-size: clamp(56px, 9vw, 150px); font-weight: 700; line-height: 1; white-space: nowrap; display: flex; align-items: center; gap: 0.25em; }
+.sum.long { font-size: clamp(40px, 7vw, 120px); gap: 0.2em; }
 .sum .op { color: var(--c); }
 .sum .q { display: inline-grid; place-items: center; min-width: 1.4em; padding: 0 0.15em; height: 1.2em; border-radius: 0.25em; border: 0.07em dashed var(--c); color: var(--c); }
 .sum .q.solved { border-style: solid; background: #4ade80; border-color: #16a34a; color: #fff; animation: pop 0.45s; }

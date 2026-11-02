@@ -6,9 +6,9 @@ const $ = id => document.getElementById(id);
 
 // ── The three doors ──
 const DOORS = [
-  { key: 'plus', sign: '+', label: 'PLUS', ops: ['+'], c: '#ef4444', c2: '#fca5a5', wood: '#c2410c', woodDark: '#7c2d12', theme: 'plus', items: ['🍎', '🍐'] },
-  { key: 'minus', sign: '−', label: 'MINUS', ops: ['-'], c: '#3b82f6', c2: '#93c5fd', wood: '#1d4ed8', woodDark: '#1e3a8a', theme: 'minus', items: ['🐟', '🐟'] },
-  { key: 'mix', sign: '+−', label: 'MIX', ops: ['+', '-'], c: '#a855f7', c2: '#e9d5ff', wood: '#7e22ce', woodDark: '#4c1d95', theme: 'mix', items: ['⭐', '🌙'] },
+  { key: 'plus', sign: '+', label: 'PLUS', kind: '+', c: '#ef4444', c2: '#fca5a5', wood: '#c2410c', woodDark: '#7c2d12', theme: 'plus', items: ['🍎', '🍐'] },
+  { key: 'minus', sign: '−', label: 'MINUS', kind: '-', c: '#3b82f6', c2: '#93c5fd', wood: '#1d4ed8', woodDark: '#1e3a8a', theme: 'minus', items: ['🐟', '🐟'] },
+  { key: 'mix', sign: '+−', label: 'MIX', kind: 'mix', c: '#a855f7', c2: '#e9d5ff', wood: '#7e22ce', woodDark: '#4c1d95', theme: 'mix', items: ['⭐', '🌙'] },
 ];
 const RANGES = [10, 20, 30, 50, 100];
 const COUNTS = [5, 10, 15];
@@ -167,20 +167,31 @@ function showHall() {
 // ═════════════ Room ═════════════
 let room = null;   // { door, problems, at, sel, mistakes, stars, locked }
 
-function makeProblem(op, max) {
-  let a, b, ans;
-  if (op === '+') { ans = rand(2, max); a = rand(1, ans - 1); b = ans - a; }
-  else { a = rand(2, max); b = rand(1, a); ans = a - b; }
+// A problem is a row of numbers and signs: nums [7, 5, 3] + ops ['+', '-'] = 7 + 5 − 3.
+// Every step stays within 0..max, so there are never negative numbers.
+function makeProblem(kind, max) {
+  let nums, ops, ans;
+  if (kind === '+') { ans = rand(2, max); const a = rand(1, ans - 1); nums = [a, ans - a]; ops = ['+']; }
+  else if (kind === '-') { const a = rand(2, max), b = rand(1, a); nums = [a, b]; ops = ['-']; ans = a - b; }
+  else if (Math.random() < 0.5) {
+    // a + b − c
+    const s = rand(2, max), a = rand(1, s - 1), c = rand(1, s);
+    nums = [a, s - a, c]; ops = ['+', '-']; ans = s - c;
+  } else {
+    // a − b + c
+    const a = rand(2, max), b = rand(1, a - 1), m = a - b, c = rand(1, max - m);
+    nums = [a, b, c]; ops = ['-', '+']; ans = m + c;
+  }
   const near = shuffle([-3, -2, -1, 1, 2, 3]).map(k => ans + k).filter(n => n >= 0 && n <= max);
   const wrong = near.slice(0, 2);
   for (let k = 4; wrong.length < 2; k++) [ans + k, ans - k].forEach(n => { if (wrong.length < 2 && n >= 0 && n <= max + 3) wrong.push(n); });
-  return { a, b, op, ans, options: shuffle([ans, ...wrong]) };
+  return { nums, ops, ans, options: shuffle([ans, ...wrong]) };
 }
 function makeProblems(door) {
   const list = [], seen = new Set();
   for (let tries = 0; list.length < settings.count && tries < 500; tries++) {
-    const p = makeProblem(door.ops[Math.floor(Math.random() * door.ops.length)], settings.max);
-    const key = `${p.a}${p.op}${p.b}`;
+    const p = makeProblem(door.kind, settings.max);
+    const key = p.nums.map((n, k) => (k ? p.ops[k - 1] : '') + n).join('');
     if (seen.has(key) && tries < 400) continue;
     seen.add(key);
     list.push(p);
@@ -245,17 +256,28 @@ function showProblem() {
   const p = room.problems[room.at];
   room.sel = null; room.mistakes = 0; room.locked = false;
   [...$('path').children].forEach((s, k) => s.classList.toggle('now', k === room.at));
-  const opSign = p.op === '+' ? '+' : '−';
-  $('sum').innerHTML = `<span>${p.a}</span><span class="op">${opSign}</span><span>${p.b}</span><span>=</span><span class="q" id="qBox">?</span>`;
-  // Little pictures to count, for small numbers.
+  const sign = op => op === '+' ? '+' : '−';
+  const sum = $('sum');
+  sum.classList.toggle('long', p.nums.length > 2);
+  sum.innerHTML = p.nums.map((n, k) => (k ? `<span class="op">${sign(p.ops[k - 1])}</span>` : '') + `<span>${n}</span>`).join('')
+    + `<span>=</span><span class="q" id="qBox">?</span>`;
+  // Little pictures to count, for small numbers: "+" adds a new group,
+  // "−" crosses out items from the end.
   const h = $('helpers');
   h.innerHTML = '';
-  if (settings.help && p.a <= 10 && p.b <= 10) {
-    const [x, y] = room.door.items;
-    const grp = (n, ch, goneFrom = Infinity) => `<span class="grp">${Array.from({ length: n }, (_, k) => `<span class="${k >= goneFrom ? 'gone' : ''}">${ch}</span>`).join('')}</span>`;
-    h.innerHTML = p.op === '+'
-      ? `${grp(p.a, x)}<span class="mark">+</span>${grp(p.b, y)}`
-      : grp(p.a, x, p.a - p.b);
+  if (settings.help && p.nums.every(n => n <= 10)) {
+    const items = room.door.items;
+    const groups = [{ n: p.nums[0], gone: 0, ch: items[0] }];
+    p.ops.forEach((op, k) => {
+      let n = p.nums[k + 1];
+      if (op === '+') { groups.push({ n, gone: 0, ch: items[groups.length % items.length] }); return; }
+      for (let g = groups.length - 1; g >= 0 && n > 0; g--) {
+        const take = Math.min(n, groups[g].n - groups[g].gone);
+        groups[g].gone += take; n -= take;
+      }
+    });
+    const grp = ({ n, gone, ch }) => `<span class="grp">${Array.from({ length: n }, (_, k) => `<span class="${k >= n - gone ? 'gone' : ''}">${ch}</span>`).join('')}</span>`;
+    h.innerHTML = groups.map(grp).join('<span class="mark">+</span>');
   }
   const card = $('card');
   card.classList.remove('enter'); void card.offsetWidth; card.classList.add('enter');
@@ -269,7 +291,7 @@ function showProblem() {
     b.onclick = () => answer(n, b);
     box.appendChild(b);
   });
-  say(`${p.a} ${p.op === '+' ? 'plus' : 'minus'} ${p.b}?`);
+  say(p.nums.map((n, k) => (k ? (p.ops[k - 1] === '+' ? 'plus ' : 'minus ') : '') + n).join(' ') + '?');
 }
 
 function answer(n, btn) {
