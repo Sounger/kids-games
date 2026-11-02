@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tricky Words</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="sky" id="sky"></div>
+
+  <header class="top">
+    <h1 class="title"><span>T</span><span>r</span><span>i</span><span>c</span><span>k</span><span>y</span> <span>W</span><span>o</span><span>r</span><span>d</span><span>s</span></h1>
+    <div class="hud">
+      <button class="round-btn" id="editBtn" title="Edit sentences and tricky words">✏️</button>
+      <button class="round-btn" id="soundBtn" title="Sound on/off">🔊</button>
+      <button class="round-btn" id="fsBtn" title="Full screen">⛶</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <div class="card" id="card">
+      <div class="sentence" id="sentence"></div>
+    </div>
+  </main>
+
+  <nav class="bottom">
+    <button class="arrow" id="prevBtn" title="Back">◀</button>
+    <div class="dots" id="dots"></div>
+    <button class="arrow" id="nextBtn" title="Next">▶</button>
+  </nav>
+
+  <!-- ── Teacher's editor ── -->
+  <section class="overlay hidden" id="editor">
+    <div class="panel">
+      <h2>✏️ My sentences</h2>
+      <label class="set-label" for="sentencesBox">One sentence on each line</label>
+      <textarea id="sentencesBox" rows="7" spellcheck="false"></textarea>
+
+      <h2 class="tw-head">🔴 Tricky Words</h2>
+      <label class="set-label" for="trickyBox">These words are always red. Separate with commas or spaces.</label>
+      <textarea id="trickyBox" rows="3" spellcheck="false"></textarea>
+      <div class="chips" id="trickyChips"></div>
+
+      <div class="row">
+        <button class="big-btn" id="saveBtn">✔ Save</button>
+        <button class="big-btn alt" id="cancelBtn">✖ Cancel</button>
+        <button class="big-btn soft" id="sampleBtn">↺ Sample</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="fx"></div>
+  <script src="app.js"></script>
+</body>
+</html>

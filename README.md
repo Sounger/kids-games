@@ -10,6 +10,7 @@ Educational web games for K3 kids. One link, all games, any device.
 | Missing Number | Math |
 | Magic Doors | Math |
 | Word Quest | Letters + Math |
+| Tricky Words | Letters |
 | Word Wheel | Letters |
 | Super Typer | Letters |
 | Magic Forest | Board game |
